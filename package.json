@@ -12,7 +12,8 @@
   },
   "scripts": {
     "test": "node --test test/*.test.js",
-    "verify": "node --test test/*.test.js"
+    "verify": "node --test test/*.test.js",
+    "start": "node bin/peerloom-seeder.js"
   },
   "license": "MIT",
   "comment:peer-deps": "Dependencies are peers, as in @peerloom/core and @peerloom/host, so an app bundles one copy of each (and its hypercore patches reach the seeder too). blind-peer is pinned exactly: src/seeder.js wraps its internal methods.",
@@ -41,5 +42,8 @@
     "protomux": "^3.10.3",
     "protomux-wakeup": "2.9.0",
     "sodium-universal": "^5.0.1"
+  },
+  "bin": {
+    "peerloom-seeder": "bin/peerloom-seeder.js"
   }
 }

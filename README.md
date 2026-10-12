@@ -75,6 +75,11 @@ The seeder also answers PearOffice's older names (`pearoffice://seeder`,
 `pearoffice/seeder-pair/1`, `pearoffice/seeder/1`), so PearOffice versions from
 before the shared seeder keep working. `src/protocol.js` has the exchange.
 
+## Run one
+
+`node bin/peerloom-seeder.js --data <folder>` prints a pairing link and takes
+`pair`, `status`, `devices`, `limit <bytes|off>` and `forget <key>` on stdin.
+
 ## Test
 
 `npm test`: pairing under both names, labels, admission, requests, the storage
