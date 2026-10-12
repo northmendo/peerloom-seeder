@@ -1,0 +1,711 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PeerLoom Seeder</title>
+<link rel="icon" type="image/png" href="icon.png">
+<link rel="stylesheet" href="fonts.css">
+<!--
+  PeerLoom Seeder's dashboard, from PearOffice's seeder dashboard (a top bar
+  with the brand, a live pill, theme and a menu; a row of stats; the devices;
+  this seeder's details and storage limit; an action bar with the seeder key
+  and the main button; dialogs for pairing, renaming, the limit, support and
+  confirming). The same page on every platform. Served by server.js.
+-->
+<style>
+  :root {
+    --bg: #f7f7f4; --surface: #ffffff; --surface-2: #f0f1ec; --surface-hover: #ebede6;
+    --border: #e2e3dd; --border-strong: #c9cbc2;
+    --text: #1f2420; --muted: #5d635d; --subtle: #7b817a;
+    --primary: #5b8c3a; --primary-strong: #44702a; --on-primary: #ffffff;
+    --good: #4a8f2c; --bad: #b3261e; --faint: rgba(91, 140, 58, .10);
+    --shadow: 0 1px 2px #1b1f1a0f, 0 10px 30px #1f241a14;
+    --bg-accent: radial-gradient(1200px 600px at 50% -12%, rgba(91, 140, 58, .10) 0%, transparent 60%);
+    --radius: 14px; --radius-sm: 9px;
+    --ease: cubic-bezier(.2, 0, 0, 1); --dur-fast: 130ms;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #121512; --surface: #1b1f1b; --surface-2: #232823; --surface-hover: #2a302a;
+      --border: #2d322c; --border-strong: #3d443c;
+      --text: #e6e8e3; --muted: #b0b6ad; --subtle: #868d84;
+      --primary: #8bc061; --primary-strong: #a6d47f; --on-primary: #132010;
+      --good: #8bc061; --bad: #ff8a80; --faint: rgba(139, 192, 97, .12);
+      --shadow: 0 1px 2px #00000040, 0 8px 24px #00000030;
+      --bg-accent: radial-gradient(1200px 600px at 50% -12%, rgba(139, 192, 97, .09) 0%, transparent 60%);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #121512; --surface: #1b1f1b; --surface-2: #232823; --surface-hover: #2a302a;
+    --border: #2d322c; --border-strong: #3d443c;
+    --text: #e6e8e3; --muted: #b0b6ad; --subtle: #868d84;
+    --primary: #8bc061; --primary-strong: #a6d47f; --on-primary: #132010;
+    --good: #8bc061; --bad: #ff8a80; --faint: rgba(139, 192, 97, .12);
+    --shadow: 0 1px 2px #00000040, 0 8px 24px #00000030;
+    --bg-accent: radial-gradient(1200px 600px at 50% -12%, rgba(139, 192, 97, .09) 0%, transparent 60%);
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); background-image: var(--bg-accent); color: var(--text); font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 15px; font-weight: 400; line-height: 1.45; -webkit-font-smoothing: antialiased; }
+  button, input { font-family: inherit; }
+  svg { display: block; }
+  svg.i { width: 17px; height: 17px; fill: currentColor; flex: 0 0 auto; }
+  [hidden] { display: none !important; }
+
+  .app { height: 100dvh; max-width: 940px; margin: 0 auto; padding: 0 18px; display: flex; flex-direction: column; }
+  .topbar { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; padding: 16px 2px 14px; }
+  .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .brand-mark { width: 32px; height: 32px; flex: 0 0 auto; border-radius: 9px; overflow: hidden; }
+  .brand-mark img { width: 100%; height: 100%; display: block; }
+  .brand-name { font-size: 15px; font-weight: 700; letter-spacing: -.01em; white-space: nowrap; }
+  .brand-sub { color: var(--subtle); font-size: 12px; white-space: nowrap; }
+  .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  .pill { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--muted); background: var(--surface); border: 1px solid var(--border); padding: 5px 11px; border-radius: 999px; white-space: nowrap; }
+  .pill .v { color: var(--subtle); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; background: var(--subtle); }
+  .dot.good { background: var(--good); box-shadow: 0 0 7px var(--good); } .dot.bad { background: var(--bad); }
+  .iconbtn { width: 34px; height: 34px; flex: 0 0 auto; display: grid; place-items: center; background: var(--surface); color: var(--muted); border: 1px solid var(--border); border-radius: 9px; cursor: pointer; padding: 0; }
+  .iconbtn:hover { background: var(--surface-hover); color: var(--text); border-color: var(--border-strong); }
+  .iconbtn.sm { width: 28px; height: 28px; } .iconbtn.sm svg.i { width: 15px; height: 15px; }
+  .iconbtn.done { color: var(--good); }
+  .menuwrap { position: relative; }
+  .menu { position: absolute; right: 0; top: 40px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); padding: 6px; min-width: 210px; z-index: 20; }
+  .menu button { display: flex; align-items: center; gap: 9px; width: 100%; text-align: left; background: transparent; border: 0; color: var(--text); font-size: 14px; padding: 9px 10px; border-radius: 7px; cursor: pointer; white-space: nowrap; }
+  .menu button:hover { background: var(--surface-hover); } .menu button svg.i { color: var(--muted); }
+
+  .toast { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; border-radius: var(--radius-sm); padding: 9px 13px; margin-bottom: 10px; font-size: 13.5px; color: var(--text); }
+  .toast.bad { background: color-mix(in srgb, var(--bad) 14%, var(--surface)); border: 1px solid color-mix(in srgb, var(--bad) 40%, var(--border)); }
+  .toast.good { background: color-mix(in srgb, var(--good) 14%, var(--surface)); border: 1px solid color-mix(in srgb, var(--good) 40%, var(--border)); }
+  .toast span { flex: 1; min-width: 0; }
+
+  .main { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; padding-bottom: 4px; }
+  .stats { flex: 0 0 auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 15px 16px; box-shadow: var(--shadow); }
+  .stat.hero { background: linear-gradient(180deg, var(--faint), transparent), var(--surface); border-color: var(--border-strong); }
+  .stat .num { font-size: 32px; font-weight: 700; letter-spacing: -.02em; line-height: 1.1; color: var(--primary); }
+  .stat .num.small { font-size: 22px; color: var(--text); }
+  .stat .lbl { color: var(--muted); font-size: 12.5px; margin-top: 3px; }
+  .stat .sub { color: var(--subtle); font-size: 11.5px; margin-top: 3px; }
+
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+  .panel-head { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 14px 16px 12px; border-bottom: 1px solid var(--border); }
+  .panel-head h2 { font-size: 14px; font-weight: 700; margin: 0; }
+  .count { color: var(--subtle); font-size: 12px; }
+  .list { padding: 8px; }
+  .empty { color: var(--subtle); font-size: 13.5px; text-align: center; padding: 26px 12px; line-height: 1.6; }
+  .empty strong { color: var(--muted); }
+  .item { display: flex; align-items: center; gap: 12px; padding: 11px 12px; border-radius: 10px; }
+  .item:hover { background: var(--surface-hover); }
+  .item-icon { width: 32px; height: 32px; flex: 0 0 auto; border-radius: 9px; background: var(--faint); color: var(--primary); display: grid; place-items: center; }
+  .item-main { flex: 1; min-width: 0; }
+  .item-name { font-family: ui-monospace, Menlo, monospace; font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .item-state { color: var(--subtle); font-size: 12px; margin-top: 2px; }
+  .item-name.label { font-family: inherit; font-size: 14px; font-weight: 600; }
+  .item-name.label.none { color: var(--subtle); font-weight: 500; }
+  .item-actions { display: flex; gap: 4px; flex: 0 0 auto; }
+  .bar { height: 4px; border-radius: 2px; background: var(--surface-2); margin-top: 6px; overflow: hidden; max-width: 220px; }
+  .bar > span { display: block; height: 100%; background: var(--primary); }
+  .bar.full > span { background: var(--bad); }
+  .facts { display: grid; grid-template-columns: auto 1fr auto; gap: 10px 14px; padding: 14px 16px; align-items: center; font-size: 13.5px; }
+  .facts .k { color: var(--muted); }
+  .facts .v { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .facts .mono { font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
+  .check { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--text); width: 100%; }
+
+  .actionbar { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; padding: 12px 2px 16px; }
+  .identity { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .identity .mono { font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: var(--subtle); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .spacer { flex: 1; }
+
+  button.primary, button.ghost, button.danger { display: inline-flex; align-items: center; justify-content: center; gap: 7px; font-weight: 600; border-radius: 10px; cursor: pointer; }
+  button.primary { font-size: 14px; padding: 10px 16px; border: 1px solid var(--primary); background: var(--primary); color: var(--on-primary); }
+  button.primary:hover { filter: brightness(1.06); }
+  button.ghost { font-size: 13px; padding: 9px 14px; background: transparent; color: var(--muted); border: 1px solid var(--border); }
+  button.ghost:hover { border-color: var(--border-strong); color: var(--text); }
+  button.danger { font-size: 12.5px; padding: 6px 10px; background: transparent; color: var(--bad); border: 1px solid transparent; }
+  button.danger:hover { border-color: var(--bad); }
+  button.danger.solid { border-color: var(--bad); padding: 9px 14px; font-size: 13px; }
+  button:disabled { opacity: .5; cursor: default; }
+
+  .overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, .55); display: flex; align-items: center; justify-content: center; padding: 18px; z-index: 50; }
+  .overlay.solid { background: var(--bg); background-image: var(--bg-accent); }
+  .modal { background: var(--surface); border: 1px solid var(--border-strong); border-radius: 16px; box-shadow: var(--shadow); width: 420px; max-width: 100%; max-height: 100%; overflow-y: auto; padding: 20px; }
+  .modal.narrow { width: 360px; }
+  .modal-head { position: relative; display: flex; align-items: center; justify-content: center; margin-bottom: 14px; min-height: 34px; }
+  .modal-head h3 { margin: 0; font-size: 16px; font-weight: 700; text-align: center; }
+  .modal-head .iconbtn { position: absolute; right: 0; top: 50%; transform: translateY(-50%); }
+  .stack { display: flex; flex-direction: column; gap: 12px; align-items: center; }
+  .row { display: flex; gap: 10px; width: 100%; }
+  .row > button { flex: 1; }
+  .tabs { display: flex; gap: 8px; width: 100%; }
+  .tabs button { flex: 1; white-space: nowrap; }
+  .hint { color: var(--subtle); font-size: 12.5px; line-height: 1.5; margin: 0; text-align: center; }
+  .qr { background: #fff; padding: 10px; border-radius: 12px; line-height: 0; }
+  .qr svg { width: 220px; max-width: 100%; height: auto; }
+  .qr.small svg { width: 180px; }
+  .field { display: flex; gap: 8px; width: 100%; }
+  .field input { flex: 1; min-width: 0; font-size: 13px; padding: 9px 11px; border: 1px solid var(--border); border-radius: 9px; background: var(--bg); color: var(--text); }
+  .field input[readonly] { font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
+  .field input:focus { outline: none; border-color: var(--primary); }
+  .value { font-family: ui-monospace, Menlo, monospace; color: var(--muted); font-size: 12px; word-break: break-all; text-align: center; }
+  .flash { font-size: 13px; text-align: center; margin: 0; }
+  .flash.err { color: var(--bad); }
+  .spin { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -3px; margin-right: 7px; }
+  .login-brand { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .login-brand .brand-mark { width: 44px; height: 44px; border-radius: 12px; }
+  
+  @media (max-width: 560px) {
+    .app { padding: 0 14px; }
+    .stats { grid-template-columns: 1fr 1fr; }
+    .stat .num { font-size: 28px; } .stat .num.small { font-size: 20px; }
+    .topbar { flex-wrap: wrap; gap: 8px; padding: 12px 2px 10px; }
+    .brand-sub { display: none; }
+    .actionbar { flex-wrap: wrap; gap: 10px; padding: 12px 2px 14px; }
+    .identity { flex-basis: 100%; justify-content: center; } .spacer { display: none; }
+    #pair { width: 100%; padding: 13px; }
+    .modal { padding: 18px; }
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes ovIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes mdIn { from { opacity: 0; transform: translateY(10px) scale(.985); } to { opacity: 1; transform: none; } }
+  @keyframes barIn { from { opacity: 0; transform: translateY(-7px); } to { opacity: 1; transform: none; } }
+  @keyframes menuIn { from { opacity: 0; transform: translateY(-5px) scale(.97); } to { opacity: 1; transform: none; } }
+  @keyframes rowIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+  @keyframes livePulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.18); opacity: .72; } }
+  .overlay { animation: ovIn .18s var(--ease) both; }
+  .overlay .modal { animation: mdIn .24s var(--ease) both; }
+  .toast { animation: barIn .2s var(--ease) both; }
+  .menu { animation: menuIn .14s var(--ease) both; transform-origin: top right; }
+  .item.enter { animation: rowIn .24s var(--ease) both; }
+  .dot.good { animation: livePulse 2.2s ease-in-out infinite; }
+  button { transition: transform var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease), filter var(--dur-fast) var(--ease); }
+  button:active { transform: scale(.97); }
+  .modal-head .iconbtn:active { transform: translateY(-50%) scale(.97); }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
+</style>
+</head>
+<body>
+<div class="app" id="app" hidden>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark" data-pear></div>
+      <div><div class="brand-name">PeerLoom Seeder</div><div class="brand-sub">Keeps your PeerLoom apps in sync while your phones sleep</div></div>
+    </div>
+    <div class="topbar-right">
+      <span class="pill"><span class="dot" id="dot"></span><span id="live">Connecting</span><span class="v" id="ver"></span></span>
+      <button class="iconbtn" id="theme" aria-label="Switch theme"></button>
+      <div class="menuwrap">
+        <button class="iconbtn" id="menubtn" aria-label="Menu" aria-expanded="false" data-icon="Gear"></button>
+        <div class="menu" id="menu" role="menu" hidden>
+          <button id="m-support" role="menuitem"><span data-icon="Heart"></span>Support development</button>
+          <button id="m-signout" role="menuitem"><span data-icon="SignOut"></span>Sign out</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="toast" id="toast" hidden><span id="toast-text"></span><button class="iconbtn sm" id="toast-x" aria-label="Dismiss" data-icon="X"></button></div>
+
+  <div class="main">
+    <div class="stats">
+      <div class="stat hero"><div class="num" id="s-spaces">-</div><div class="lbl" id="s-spaces-lbl">spaces kept online</div><div class="sub" id="s-peers"></div></div>
+      <div class="stat"><div class="num small" id="s-devices">-</div><div class="lbl" id="s-devices-lbl">paired devices</div></div>
+      <div class="stat"><div class="num small" id="s-used">-</div><div class="lbl">stored</div><div class="sub" id="s-free"></div></div>
+      <div class="stat"><div class="num small" id="s-up">-</div><div class="lbl">uptime</div></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>Paired devices</h2><span class="count" id="dcount"></span></div>
+      <div class="list" id="devices"><div class="empty">Connecting to the seeder.</div></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>This seeder</h2></div>
+      <div class="facts">
+        <span class="k">Storage limit</span><span class="v" id="f-limit">-</span><button class="ghost" id="limit-edit">Change</button>
+        <span class="k">Seeder key</span><span class="v mono" id="f-key">-</span><button class="iconbtn sm" id="copy-key2" aria-label="Copy the seeder key" data-icon="Copy"></button>
+        <span class="k">Version</span><span class="v" id="f-ver">-</span><span></span>
+        <span class="k">Connected peers</span><span class="v" id="f-peers">-</span><span></span>
+        <span class="k">Data folder</span><span class="v" id="f-disk">-</span><span></span>
+      </div>
+    </div>
+    <p class="hint">The seeder stores your apps' data scrambled and cannot read it. A new phone still needs someone in the household online to join.</p>
+  </div>
+
+  <div class="actionbar">
+    <div class="identity" id="identity" title="Seeder key"><span class="mono" id="key">-</span><button class="iconbtn sm" id="copy-key" aria-label="Copy the seeder key" data-icon="Copy"></button></div>
+    <div class="spacer"></div>
+    <button class="primary" id="pair"><span data-icon="Plus"></span>Pair a device</button>
+  </div>
+</div>
+
+<div class="overlay solid" id="login" hidden><form class="modal narrow" id="login-form">
+  <div class="login-brand"><div class="brand-mark" data-pear></div><div class="brand-name">PeerLoom Seeder</div></div>
+  <div class="stack">
+    <p class="hint">On Umbrel the password is shown next to PeerLoom Seeder in your apps. Elsewhere it was shown when the seeder was installed, and is in its data folder.</p>
+    <div class="field"><input id="password" type="password" autocomplete="current-password" placeholder="Password" aria-label="Password"></div>
+    <button class="primary" id="unlock" type="submit" style="width:100%">Unlock</button>
+    <p class="flash err" id="login-error" hidden></p>
+  </div>
+</form></div>
+
+<div class="overlay" id="pairov" hidden><div class="modal">
+  <div class="modal-head"><h3>Pair a device</h3><button class="iconbtn" id="pair-x" aria-label="Close" data-icon="X"></button></div>
+  <div class="stack">
+    <p class="hint">In your PeerLoom app, open Settings, then Seeder, and scan this code or paste the link.</p>
+    <div class="qr" id="qr" hidden></div>
+    <p class="hint" id="pair-wait" hidden><span class="spin"></span><span id="pair-wait-text"></span></p>
+    <p class="flash err" id="pair-error" hidden></p>
+    <div class="field" id="link-row" hidden><input id="link" readonly aria-label="Pairing link"><button class="iconbtn" id="copy-link" aria-label="Copy the link" data-icon="Copy"></button></div>
+    <button class="primary" id="pair-again" hidden>Show a new code</button>
+  </div>
+</div></div>
+
+<div class="overlay" id="supov" hidden><div class="modal">
+  <div class="modal-head"><h3>Support development</h3><button class="iconbtn" id="sup-x" aria-label="Close" data-icon="X"></button></div>
+  <div class="stack">
+    <p class="hint">No accounts, no servers, no subscriptions. If this seeder is useful to you, a tip helps keep the PeerLoom apps free. It is entirely optional.</p>
+    <div class="tabs"><button class="primary" data-tab="ln">Lightning</button><button class="ghost" data-tab="onchain">On-chain</button><button class="ghost" data-tab="usd">Card</button></div>
+    <div class="qr small" id="sup-qr"></div>
+    <p class="hint" id="sup-hint"></p>
+    <div class="value" id="sup-value"></div>
+    <div class="row"><button class="ghost" id="sup-copy">Copy</button><button class="primary" id="sup-open" hidden>Open</button></div>
+  </div>
+</div></div>
+
+<div class="overlay" id="nameov" hidden><form class="modal narrow" id="name-form">
+  <div class="modal-head"><h3>Rename device</h3></div>
+  <div class="stack">
+    <p class="hint">A name for this device on the dashboard, like "PearList on Sam's phone". The app sends a new one if it pairs again.</p>
+    <div class="field"><input id="name-input" maxlength="40" aria-label="Name"></div>
+    <div class="row"><button class="ghost" type="button" id="name-cancel">Cancel</button><button class="primary" type="submit">Save</button></div>
+  </div>
+</form></div>
+
+<div class="overlay" id="limitov" hidden><form class="modal narrow" id="limit-form">
+  <div class="modal-head"><h3>Storage limit</h3></div>
+  <div class="stack">
+    <p class="hint">How much each paired device may store here. A device over its limit cannot add new spaces; the ones it has keep syncing.</p>
+    <label class="check"><input type="checkbox" id="limit-off"> No limit</label>
+    <div class="field"><input id="limit-gb" type="number" min="1" step="1" aria-label="Gigabytes per device"><span class="hint" style="align-self:center">GB per device</span></div>
+    <p class="flash err" id="limit-error" hidden></p>
+    <div class="row"><button class="ghost" type="button" id="limit-cancel">Cancel</button><button class="primary" type="submit">Save</button></div>
+  </div>
+</form></div>
+
+<div class="overlay" id="confov" hidden><div class="modal narrow">
+  <div class="modal-head"><h3 id="conf-title"></h3></div>
+  <p class="hint" id="conf-msg"></p>
+  <div class="row" style="margin-top:16px"><button class="ghost" id="conf-cancel">Cancel</button><button class="danger solid" id="conf-ok"></button></div>
+</div></div>
+
+<script>
+  // Phosphor icons (regular), the set the apps use.
+  const ICONS = {"Gear":"M128,80a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Zm88-29.84q.06-2.16,0-4.32l14.92-18.64a8,8,0,0,0,1.48-7.06,107.21,107.21,0,0,0-10.88-26.25,8,8,0,0,0-6-3.93l-23.72-2.64q-1.48-1.56-3-3L186,40.54a8,8,0,0,0-3.94-6,107.71,107.71,0,0,0-26.25-10.87,8,8,0,0,0-7.06,1.49L130.16,40Q128,40,125.84,40L107.2,25.11a8,8,0,0,0-7.06-1.48A107.6,107.6,0,0,0,73.89,34.51a8,8,0,0,0-3.93,6L67.32,64.27q-1.56,1.49-3,3L40.54,70a8,8,0,0,0-6,3.94,107.71,107.71,0,0,0-10.87,26.25,8,8,0,0,0,1.49,7.06L40,125.84Q40,128,40,130.16L25.11,148.8a8,8,0,0,0-1.48,7.06,107.21,107.21,0,0,0,10.88,26.25,8,8,0,0,0,6,3.93l23.72,2.64q1.49,1.56,3,3L70,215.46a8,8,0,0,0,3.94,6,107.71,107.71,0,0,0,26.25,10.87,8,8,0,0,0,7.06-1.49L125.84,216q2.16.06,4.32,0l18.64,14.92a8,8,0,0,0,7.06,1.48,107.21,107.21,0,0,0,26.25-10.88,8,8,0,0,0,3.93-6l2.64-23.72q1.56-1.48,3-3L215.46,186a8,8,0,0,0,6-3.94,107.71,107.71,0,0,0,10.87-26.25,8,8,0,0,0-1.49-7.06Zm-16.1-6.5a73.93,73.93,0,0,1,0,8.68,8,8,0,0,0,1.74,5.48l14.19,17.73a91.57,91.57,0,0,1-6.23,15L187,173.11a8,8,0,0,0-5.1,2.64,74.11,74.11,0,0,1-6.14,6.14,8,8,0,0,0-2.64,5.1l-2.51,22.58a91.32,91.32,0,0,1-15,6.23l-17.74-14.19a8,8,0,0,0-5-1.75h-.48a73.93,73.93,0,0,1-8.68,0,8,8,0,0,0-5.48,1.74L100.45,215.8a91.57,91.57,0,0,1-15-6.23L82.89,187a8,8,0,0,0-2.64-5.1,74.11,74.11,0,0,1-6.14-6.14,8,8,0,0,0-5.1-2.64L46.43,170.6a91.32,91.32,0,0,1-6.23-15l14.19-17.74a8,8,0,0,0,1.74-5.48,73.93,73.93,0,0,1,0-8.68,8,8,0,0,0-1.74-5.48L40.2,100.45a91.57,91.57,0,0,1,6.23-15L69,82.89a8,8,0,0,0,5.1-2.64,74.11,74.11,0,0,1,6.14-6.14A8,8,0,0,0,82.89,69L85.4,46.43a91.32,91.32,0,0,1,15-6.23l17.74,14.19a8,8,0,0,0,5.48,1.74,73.93,73.93,0,0,1,8.68,0,8,8,0,0,0,5.48-1.74L155.55,40.2a91.57,91.57,0,0,1,15,6.23L173.11,69a8,8,0,0,0,2.64,5.1,74.11,74.11,0,0,1,6.14,6.14,8,8,0,0,0,5.1,2.64l22.58,2.51a91.32,91.32,0,0,1,6.23,15l-14.19,17.74A8,8,0,0,0,199.87,123.66Z",
+    "Sun":"M120,40V16a8,8,0,0,1,16,0V40a8,8,0,0,1-16,0Zm72,88a64,64,0,1,1-64-64A64.07,64.07,0,0,1,192,128Zm-16,0a48,48,0,1,0-48,48A48.05,48.05,0,0,0,176,128ZM58.34,69.66A8,8,0,0,0,69.66,58.34l-16-16A8,8,0,0,0,42.34,53.66Zm0,116.68-16,16a8,8,0,0,0,11.32,11.32l16-16a8,8,0,0,0-11.32-11.32ZM192,72a8,8,0,0,0,5.66-2.34l16-16a8,8,0,0,0-11.32-11.32l-16,16A8,8,0,0,0,192,72Zm5.66,114.34a8,8,0,0,0-11.32,11.32l16,16a8,8,0,0,0,11.32-11.32ZM48,128a8,8,0,0,0-8-8H16a8,8,0,0,0,0,16H40A8,8,0,0,0,48,128Zm80,80a8,8,0,0,0-8,8v24a8,8,0,0,0,16,0V216A8,8,0,0,0,128,208Zm112-88H216a8,8,0,0,0,0,16h24a8,8,0,0,0,0-16Z",
+    "Moon":"M233.54,142.23a8,8,0,0,0-8-2,88.08,88.08,0,0,1-109.8-109.8,8,8,0,0,0-10-10,104.84,104.84,0,0,0-52.91,37A104,104,0,0,0,136,224a103.09,103.09,0,0,0,62.52-20.88,104.84,104.84,0,0,0,37-52.91A8,8,0,0,0,233.54,142.23ZM188.9,190.34A88,88,0,0,1,65.66,67.11a89,89,0,0,1,31.4-26A106,106,0,0,0,96,56,104.11,104.11,0,0,0,200,160a106,106,0,0,0,14.92-1.06A89,89,0,0,1,188.9,190.34Z",
+    "Heart":"M178,40c-20.65,0-38.73,8.88-50,23.89C116.73,48.88,98.65,40,78,40a62.07,62.07,0,0,0-62,62c0,70,103.79,126.66,108.21,129a8,8,0,0,0,7.58,0C136.21,228.66,240,172,240,102A62.07,62.07,0,0,0,178,40ZM128,214.8C109.74,204.16,32,155.69,32,102A46.06,46.06,0,0,1,78,56c19.45,0,35.78,10.36,42.6,27a8,8,0,0,0,14.8,0c6.82-16.67,23.15-27,42.6-27a46.06,46.06,0,0,1,46,46C224,155.61,146.24,204.15,128,214.8Z",
+    "Plus":"M224,128a8,8,0,0,1-8,8H136v80a8,8,0,0,1-16,0V136H40a8,8,0,0,1,0-16h80V40a8,8,0,0,1,16,0v80h80A8,8,0,0,1,224,128Z",
+    "X":"M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z",
+    "SignOut":"M120,216a8,8,0,0,1-8,8H48a8,8,0,0,1-8-8V40a8,8,0,0,1,8-8h64a8,8,0,0,1,0,16H56V208h56A8,8,0,0,1,120,216Zm109.66-93.66-40-40a8,8,0,0,0-11.32,11.32L204.69,120H112a8,8,0,0,0,0,16h92.69l-26.35,26.34a8,8,0,0,0,11.32,11.32l40-40A8,8,0,0,0,229.66,122.34Z",
+    "DeviceMobile":"M176,16H80A24,24,0,0,0,56,40V216a24,24,0,0,0,24,24h96a24,24,0,0,0,24-24V40A24,24,0,0,0,176,16ZM72,64H184V192H72Zm8-32h96a8,8,0,0,1,8,8v8H72V40A8,8,0,0,1,80,32Zm96,192H80a8,8,0,0,1-8-8v-8H184v8A8,8,0,0,1,176,224Z",
+    "Copy":"M216,32H88a8,8,0,0,0-8,8V80H40a8,8,0,0,0-8,8V216a8,8,0,0,0,8,8H168a8,8,0,0,0,8-8V176h40a8,8,0,0,0,8-8V40A8,8,0,0,0,216,32ZM160,208H48V96H160Zm48-48H176V88a8,8,0,0,0-8-8H96V48H208Z",
+    "PencilSimple":"M227.31,73.37,182.63,28.68a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H92.69A15.86,15.86,0,0,0,104,219.31L227.31,96a16,16,0,0,0,0-22.63ZM92.69,208H48V163.31l88-88L180.69,120ZM192,108.68,147.31,64l24-24L216,84.68Z",
+    "Check":"M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z",
+    "QrCode":"M104,40H56A16,16,0,0,0,40,56v48a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V56A16,16,0,0,0,104,40Zm0,64H56V56h48v48Zm0,32H56a16,16,0,0,0-16,16v48a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V152A16,16,0,0,0,104,136Zm0,64H56V152h48v48ZM200,40H152a16,16,0,0,0-16,16v48a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V56A16,16,0,0,0,200,40Zm0,64H152V56h48v48Zm-64,72V144a8,8,0,0,1,16,0v32a8,8,0,0,1-16,0Zm80-16a8,8,0,0,1-8,8H184v40a8,8,0,0,1-8,8H144a8,8,0,0,1,0-16h24V144a8,8,0,0,1,16,0v8h24A8,8,0,0,1,216,160Zm0,32v16a8,8,0,0,1-16,0V192a8,8,0,0,1,16,0Z"}
+  const PEAR = '<img src="icon.png" alt="">'
+  const $ = (id) => document.getElementById(id)
+  const icon = (name) => '<svg class="i" viewBox="0 0 256 256" aria-hidden="true"><path d="' + ICONS[name] + '"/></svg>'
+  for (const el of document.querySelectorAll('[data-icon]')) {
+    if (el.tagName === 'SPAN') el.outerHTML = icon(el.dataset.icon)
+    else el.innerHTML = icon(el.dataset.icon)
+  }
+  for (const el of document.querySelectorAll('[data-pear]')) el.innerHTML = PEAR
+
+  const plural = (n, one, many) => n === 1 ? one : many
+  const shortKey = (k) => k ? k.slice(0, 8) + '...' + k.slice(-6) : '-'
+  function fmtBytes (n) {
+    if (n == null) return '-'
+    const u = ['bytes', 'KB', 'MB', 'GB', 'TB']
+    let i = 0
+    while (n >= 1000 && i < u.length - 1) { n /= 1000; i++ }
+    return (i === 0 ? n : n < 10 ? n.toFixed(1) : Math.round(n)) + ' ' + u[i]
+  }
+  function fmtUp (ms) {
+    if (!ms) return '-'
+    const s = Math.floor(ms / 1000), d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60)
+    return (d ? d + 'd ' : '') + (h ? h + 'h ' : '') + m + 'm'
+  }
+  function flashIcon (btn) {
+    btn.innerHTML = icon('Check'); btn.classList.add('done')
+    setTimeout(() => { btn.innerHTML = icon('Copy'); btn.classList.remove('done') }, 1200)
+  }
+  async function copy (text) {
+    try { await navigator.clipboard.writeText(text); return true } catch { return false }
+  }
+
+  // Theme: this browser's choice, else the system's.
+  function storedTheme () { try { return localStorage.getItem('theme') } catch { return null } }
+  function currentTheme () { return document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') }
+  function themeIcon () { $('theme').innerHTML = icon(currentTheme() === 'dark' ? 'Sun' : 'Moon') }
+  if (storedTheme()) document.documentElement.dataset.theme = storedTheme()
+  themeIcon()
+  $('theme').onclick = () => {
+    const next = currentTheme() === 'dark' ? 'light' : 'dark'
+    document.documentElement.dataset.theme = next
+    try { localStorage.setItem('theme', next) } catch {}
+    themeIcon()
+  }
+
+  // Toast: errors stay until the next good refresh, a success for 6 s.
+  let toastTimer
+  function toast (text, kind = 'bad') {
+    clearTimeout(toastTimer)
+    if (!text) { $('toast').hidden = true; return }
+    $('toast-text').textContent = text
+    $('toast').className = 'toast ' + kind
+    $('toast').hidden = false
+    if (kind === 'good') toastTimer = setTimeout(() => { $('toast').hidden = true }, 6000)
+  }
+  $('toast-x').onclick = () => toast(null)
+
+  // Confirm dialog.
+  let confirmDone
+  function askConfirm (title, message, label) {
+    $('conf-title').textContent = title
+    $('conf-msg').textContent = message
+    $('conf-ok').textContent = label
+    $('confov').hidden = false
+    return new Promise((resolve) => { confirmDone = resolve })
+  }
+  function endConfirm (ok) { $('confov').hidden = true; if (confirmDone) confirmDone(ok); confirmDone = null }
+  $('conf-cancel').onclick = () => endConfirm(false)
+  $('conf-ok').onclick = () => endConfirm(true)
+
+  const LOCKED = new Error('locked')
+  async function api (method, url, body) {
+    const res = await fetch(url, { method, headers: { 'content-type': 'application/json' }, body: body ? JSON.stringify(body) : undefined })
+    const data = await res.json()
+    if (res.status === 401 && url !== 'api/login') { showLogin(true); throw LOCKED }
+    if (!res.ok) throw new Error(data.error || 'Something went wrong.')
+    return data
+  }
+
+  function showLogin (on) {
+    $('login').hidden = !on
+    $('app').hidden = on
+    if (on) { closeOverlays(); $('password').focus() }
+  }
+  $('login-form').onsubmit = async (e) => {
+    e.preventDefault()
+    $('unlock').disabled = true
+    $('login-error').hidden = true
+    try {
+      await api('POST', 'api/login', { password: $('password').value })
+      $('password').value = ''
+      showLogin(false)
+      refresh()
+    } catch (err) {
+      $('login-error').textContent = err.message === 'wrong password' ? 'That password is not right.' : /too many/.test(err.message) ? 'Too many tries. Wait a minute and try again.' : err.message
+      $('login-error').hidden = false
+    }
+    $('unlock').disabled = false
+  }
+
+  function setLive (state) {
+    $('dot').className = 'dot ' + (state === 'live' ? 'good' : state === 'offline' ? 'bad' : '')
+    $('live').textContent = state === 'live' ? 'Live' : state === 'offline' ? 'Offline' : 'Connecting'
+  }
+
+  let shown = new Set()
+  let pairedAtOpen = null
+  let lastStatus = null
+
+  async function refresh () {
+    let s, devices
+    try {
+      [s, devices] = await Promise.all([api('GET', 'api/status'), api('GET', 'api/devices')])
+    } catch (err) {
+      if (err === LOCKED) return
+      $('app').hidden = false
+      setLive('offline')
+      toast(err instanceof TypeError ? 'Cannot reach the seeder.' : err.message)
+      return
+    }
+    lastStatus = s
+    setLive('live')
+    if ($('toast').classList.contains('bad')) toast(null)
+    showLogin(false)
+    $('s-spaces').textContent = s.spaces
+    $('s-spaces-lbl').textContent = plural(s.spaces, 'space kept online', 'spaces kept online')
+    $('s-peers').textContent = (s.peers || 0) + ' ' + plural(s.peers || 0, 'peer', 'peers') + ' connected'
+    $('s-up').textContent = fmtUp(s.uptime)
+    $('s-devices').textContent = s.pairedDevices
+    $('s-devices-lbl').textContent = plural(s.pairedDevices, 'paired device', 'paired devices')
+    $('ver').textContent = s.version ? 'v' + s.version : ''
+    $('s-used').textContent = s.disk ? fmtBytes(s.disk.used) : '-'
+    $('s-free').textContent = s.disk && s.disk.free != null ? fmtBytes(s.disk.free) + ' free' : ''
+    $('f-limit').textContent = s.deviceLimitBytes ? fmtBytes(s.deviceLimitBytes) + ' per device' : 'No limit'
+    $('f-key').textContent = s.seederKey
+    $('f-ver').textContent = s.version ? 'v' + s.version : '-'
+    $('f-peers').textContent = String(s.peers || 0)
+    $('f-disk').textContent = s.disk ? fmtBytes(s.disk.used) + ' used' + (s.disk.free != null ? ', ' + fmtBytes(s.disk.free) + ' free' : '') : '-'
+    $('key').textContent = shortKey(s.seederKey)
+    $('identity').title = 'Seeder key ' + s.seederKey
+    renderDevices(devices)
+    // A device paired while the pairing dialog is open: close it and say so.
+    if (pairedAtOpen !== null && s.pairedDevices > pairedAtOpen) {
+      closePair()
+      toast('Paired. That device can now back up here.', 'good')
+    }
+  }
+
+  function renderDevices (devices) {
+    $('dcount').textContent = devices.length ? '(' + devices.length + ')' : ''
+    const list = $('devices')
+    list.textContent = ''
+    if (!devices.length) {
+      list.innerHTML = '<div class="empty"><strong>No devices yet.</strong><br>Pair a phone from any PeerLoom app to start.</div>'
+      shown = new Set()
+      return
+    }
+    const next = new Set()
+    let entered = 0
+    for (const d of devices) {
+      const row = document.createElement('div')
+      row.className = 'item'
+      if (!shown.has(d.deviceKey)) { row.classList.add('enter'); row.style.animationDelay = (entered++ * 45) + 'ms' }
+      next.add(d.deviceKey)
+      const ic = document.createElement('div')
+      ic.className = 'item-icon'
+      ic.innerHTML = icon('DeviceMobile')
+      const main = document.createElement('div')
+      main.className = 'item-main'
+      const name = document.createElement('div')
+      name.className = 'item-name label' + (d.app ? '' : ' none')
+      name.textContent = d.app || 'Unnamed device'
+      name.title = d.deviceKey
+      const state = document.createElement('div')
+      state.className = 'item-state'
+      const limit = lastStatus && lastStatus.deviceLimitBytes
+      state.textContent = shortKey(d.deviceKey) + ', ' + d.spaces + ' ' + plural(d.spaces, 'space', 'spaces') + ', ' + fmtBytes(d.bytes || 0) + (limit ? ' of ' + fmtBytes(limit) : '') + (d.pairedAt ? ', paired ' + new Date(d.pairedAt).toLocaleDateString() : '')
+      main.append(name, state)
+      if (limit) {
+        const bar = document.createElement('div')
+        bar.className = 'bar' + ((d.bytes || 0) >= limit ? ' full' : '')
+        const fill = document.createElement('span')
+        fill.style.width = Math.min(100, Math.round(100 * (d.bytes || 0) / limit)) + '%'
+        bar.append(fill)
+        main.append(bar)
+      }
+      const rename = document.createElement('button')
+      rename.className = 'iconbtn sm'
+      rename.setAttribute('aria-label', 'Rename')
+      rename.innerHTML = icon('PencilSimple')
+      rename.onclick = () => openRename(d)
+      const forget = document.createElement('button')
+      forget.className = 'danger'
+      forget.textContent = 'Forget'
+      forget.onclick = async () => {
+        const ok = await askConfirm('Forget this device?', 'The seeder stops accepting it. Spaces no other paired device backs up are deleted from the seeder after 7 days.', 'Forget')
+        if (!ok) return
+        try { await api('POST', 'api/forget', { deviceKey: d.deviceKey }) } catch (err) { if (err !== LOCKED) toast(err.message) }
+        refresh()
+      }
+      const actions = document.createElement('div')
+      actions.className = 'item-actions'
+      actions.append(rename, forget)
+      row.append(ic, main, actions)
+      list.append(row)
+    }
+    shown = next
+  }
+
+  $('copy-key').onclick = async () => {
+    if (lastStatus && await copy(lastStatus.seederKey)) flashIcon($('copy-key'))
+  }
+  $('copy-key2').onclick = async () => {
+    if (lastStatus && await copy(lastStatus.seederKey)) flashIcon($('copy-key2'))
+  }
+
+  // Rename a device's label.
+  let renaming = null
+  function openRename (d) {
+    renaming = d.deviceKey
+    $('name-input').value = d.app || ''
+    $('nameov').hidden = false
+    $('name-input').focus()
+  }
+  function closeRename () { renaming = null; $('nameov').hidden = true }
+  $('name-cancel').onclick = closeRename
+  $('name-form').onsubmit = async (e) => {
+    e.preventDefault()
+    const deviceKey = renaming
+    closeRename()
+    try { await api('POST', 'api/label', { deviceKey, app: $('name-input').value }) } catch (err) { if (err !== LOCKED) toast(err.message) }
+    refresh()
+  }
+
+  // Storage limit per device, in GB (1000^3 bytes).
+  function openLimit () {
+    const bytes = lastStatus && lastStatus.deviceLimitBytes
+    $('limit-off').checked = !bytes
+    $('limit-gb').value = bytes ? Math.round(bytes / 1e9) : 25
+    $('limit-gb').disabled = !bytes
+    $('limit-error').hidden = true
+    $('limitov').hidden = false
+  }
+  function closeLimit () { $('limitov').hidden = true }
+  $('limit-off').onchange = () => { $('limit-gb').disabled = $('limit-off').checked }
+  $('limit-edit').onclick = openLimit
+  $('limit-cancel').onclick = closeLimit
+  $('limit-form').onsubmit = async (e) => {
+    e.preventDefault()
+    const gb = Number($('limit-gb').value)
+    if (!$('limit-off').checked && !(Number.isInteger(gb) && gb >= 1)) {
+      $('limit-error').textContent = 'Enter a whole number of GB, 1 or more.'
+      $('limit-error').hidden = false
+      return
+    }
+    try {
+      await api('POST', 'api/limit', { bytes: $('limit-off').checked ? null : gb * 1e9 })
+      closeLimit()
+      refresh()
+    } catch (err) {
+      if (err === LOCKED) return
+      $('limit-error').textContent = err.message
+      $('limit-error').hidden = false
+    }
+  }
+
+  // Menu.
+  function setMenu (open) { $('menu').hidden = !open; $('menubtn').setAttribute('aria-expanded', String(open)) }
+  $('menubtn').onclick = (e) => { e.stopPropagation(); setMenu($('menu').hidden) }
+  document.addEventListener('click', () => setMenu(false))
+  $('m-signout').onclick = async () => {
+    setMenu(false)
+    try { await fetch('api/logout', { method: 'POST' }) } catch {}
+    showLogin(true)
+  }
+
+  // Pairing: the dialog opens a five minute window on the seeder at once.
+  let pairing = null
+  let pairTimer = null
+  function closePair () {
+    pairing = null
+    pairedAtOpen = null
+    clearInterval(pairTimer)
+    $('pairov').hidden = true
+  }
+  async function openPair () {
+    $('pairov').hidden = false
+    $('pair-error').hidden = true
+    $('pair-again').hidden = true
+    $('qr').hidden = true
+    $('link-row').hidden = true
+    $('pair-wait').hidden = false
+    $('pair-wait-text').textContent = 'Opening.'
+    pairedAtOpen = lastStatus ? lastStatus.pairedDevices : null
+    try {
+      const p = await api('POST', 'api/pair')
+      // Count down by this browser's clock, from the server's window length.
+      pairing = { until: Date.now() + (p.expiresAt - p.now) }
+      $('qr').innerHTML = p.svg
+      $('link').value = p.link
+      $('qr').hidden = false
+      $('link-row').hidden = false
+      clearInterval(pairTimer)
+      pairTick()
+      pairTimer = setInterval(pairTick, 1000)
+    } catch (err) {
+      if (err === LOCKED) return
+      $('pair-wait').hidden = true
+      $('pair-error').textContent = err.message
+      $('pair-error').hidden = false
+      $('pair-again').hidden = false
+    }
+  }
+  function pairTick () {
+    if (!pairing) return
+    const left = Math.ceil((pairing.until - Date.now()) / 1000)
+    if (left <= 0) {
+      clearInterval(pairTimer)
+      pairing = null
+      $('qr').hidden = true
+      $('link-row').hidden = true
+      $('pair-wait').hidden = true
+      $('pair-error').textContent = 'That code has expired.'
+      $('pair-error').hidden = false
+      $('pair-again').hidden = false
+      return
+    }
+    $('pair-wait-text').textContent = 'Waiting for a device. Works for ' + Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0') + '.'
+  }
+  $('pair').onclick = openPair
+  $('pair-again').onclick = openPair
+  $('pair-x').onclick = closePair
+  $('copy-link').onclick = async () => { if (await copy($('link').value)) flashIcon($('copy-link')) }
+
+  // Support.
+  let donate = null
+  let supTab = 'ln'
+  const SUP_HINTS = {
+    ln: 'Scan with any Lightning wallet and pick your own amount, or copy the address.',
+    onchain: 'On-chain fees are higher, so Lightning is cheaper for small tips.',
+    usd: 'Scan to open Buy Me a Coffee, or open it here to pay by card.'
+  }
+  function renderSupport () {
+    for (const b of document.querySelectorAll('[data-tab]')) b.className = b.dataset.tab === supTab ? 'primary' : 'ghost'
+    $('sup-hint').textContent = SUP_HINTS[supTab]
+    $('sup-open').hidden = supTab !== 'usd'
+    const d = donate && donate[supTab]
+    $('sup-qr').innerHTML = d ? d.svg : ''
+    $('sup-value').textContent = d ? d.value : ''
+  }
+  for (const b of document.querySelectorAll('[data-tab]')) b.onclick = () => { supTab = b.dataset.tab; renderSupport() }
+  $('m-support').onclick = async () => {
+    setMenu(false)
+    $('supov').hidden = false
+    renderSupport()
+    if (!donate) {
+      try { donate = await api('GET', 'api/donate') } catch (err) { if (err !== LOCKED) toast(err.message) }
+      renderSupport()
+    }
+  }
+  $('sup-x').onclick = () => { $('supov').hidden = true }
+  $('sup-copy').onclick = async () => {
+    if (!donate || !await copy(donate[supTab].value)) return
+    $('sup-copy').textContent = 'Copied'
+    setTimeout(() => { $('sup-copy').textContent = 'Copy' }, 1200)
+  }
+  $('sup-open').onclick = () => window.open(donate.usd.value, '_blank', 'noopener')
+
+  function closeOverlays () { closePair(); closeRename(); closeLimit(); $('supov').hidden = true; endConfirm(false) }
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return
+    if (!$('confov').hidden) endConfirm(false)
+    else if (!$('nameov').hidden) closeRename()
+    else if (!$('limitov').hidden) closeLimit()
+    else if (!$('pairov').hidden) closePair()
+    else if (!$('supov').hidden) $('supov').hidden = true
+    else setMenu(false)
+  })
+  for (const ov of ['pairov', 'supov', 'confov', 'nameov', 'limitov']) {
+    $(ov).addEventListener('click', (e) => {
+      if (e.target !== $(ov)) return
+      if (ov === 'confov') endConfirm(false)
+      else if (ov === 'pairov') closePair()
+      else if (ov === 'nameov') closeRename()
+      else $(ov).hidden = true
+    })
+  }
+
+  setLive('connecting')
+  refresh()
+  setInterval(() => { if ($('login').hidden) refresh() }, 3000)
+</script>
+</body>
+</html>
