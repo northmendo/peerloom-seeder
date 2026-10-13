@@ -35,7 +35,8 @@ refresh_desktop_caches
 # and rule are already in place and the helper restarts the service itself.
 TARGET_USER="${SUDO_USER:-}"
 if [ -z "$TARGET_USER" ] || [ "$TARGET_USER" = "root" ]; then
-  echo "peerloom-seeder: installed. As your normal user, run: peerloom-seeder install-service"
+  # $2 is the version being upgraded from, empty on a first install.
+  [ -n "${2:-}" ] || echo "peerloom-seeder: installed. As your normal user, run: peerloom-seeder install-service"
   exit 0
 fi
 TARGET_HOME=$(getent passwd "$TARGET_USER" | cut -d: -f6)

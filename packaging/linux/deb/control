@@ -5,7 +5,7 @@ Maintainer: PeerLoom LLC <noreply@peerloomllc.com>
 Section: net
 Priority: optional
 Depends: systemd, libc6
-Recommends: curl, polkitd | policykit-1
+Recommends: curl, pkexec | policykit-1
 Suggests: xdg-utils
 Installed-Size: __SIZE__
 Homepage: https://peerloomllc.com
