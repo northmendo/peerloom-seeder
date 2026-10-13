@@ -21,6 +21,13 @@ First built as PearOffice's seeder. The plan is in the suite root,
 - **Drops.** A paired device can ask for a space to be deleted after a delay
   (at most 30 days) or cancel that. Forgetting a device drops, after 7 days,
   every space no other paired device registered.
+- **Retention.** A device that backs a space up can ask for only the last N
+  days to be kept (`{ t: 'retain', bootstrap, days }`, `days: null` keeps
+  everything). Once an hour the seeder notes each core's length and clears
+  the blocks it held more than N days ago, moving blind-peer's cleared count
+  so they are not fetched again. A member offline longer than N days cannot
+  catch up on those blocks from the seeder alone. PearCircle uses it for
+  location history.
 - **Keyrings.** A small sealed record per person, so a device restored from a
   recovery phrase can find its spaces again. Optional.
 - **App labels.** A device can send a label ("PearList") for the dashboard,

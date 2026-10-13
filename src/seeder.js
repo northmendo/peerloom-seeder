@@ -17,6 +17,13 @@
 // Strangers would need a registered space's bootstrap key, which only members
 // and the seeder hold.
 //
+// A device that backs a space up can ask the seeder to keep only the last N
+// days of it ("retain"). The seeder cannot read block times, so "older than N
+// days" means held by the seeder more than N days ago: once an hour it notes
+// each core's length, and clears the blocks below the length it noted N days
+// back. A member offline longer than that cannot catch up on those blocks
+// from the seeder alone. PearCircle asks for this for location history.
+//
 // It also keeps keyrings: a person's encrypted list of their spaces, put by
 // their paired devices, handed to anyone who knows its locator, and announced
 // on its topic so a device restored from a recovery phrase can find it. A
@@ -39,6 +46,9 @@ const { NAMES, PAIR_WINDOW_MS, DROP_MAX_MS, DROP_GRACE_MS, pairTopic, seederLink
 const { checkSealed, checkClaim, topicOf } = require('./keyringRecord')
 
 const DROP_SWEEP_MS = 60 * 60 * 1000
+const RETAIN_SWEEP_MS = 60 * 60 * 1000
+const RETAIN_MAX_DAYS = 3650
+const DAY_MS = 24 * 3600 * 1000
 const KEYRINGS_PER_DEVICE = 4
 const USAGE_CACHE_MS = 60 * 1000
 const STYLES = Object.keys(NAMES)
@@ -49,6 +59,8 @@ const DEVICE = 'device/'
 const SPACE = 'sheet/'
 const CORE = 'core/'
 const DROP = 'drop/'
+const RETAIN = 'retain/' // space -> { ms, by, at }
+const RETAIN_MARK = 'retainmark/' // space/core/padded time -> { length }
 const KEYRING = 'keyring/'
 const CONFIG_LIMIT = 'config/deviceLimitBytes'
 
@@ -215,6 +227,7 @@ async function createSeeder ({ dataDir, bootstrap = null, log = () => {}, stateN
       registrants.delete(space)
       await state.del(SPACE + space)
       await state.del(DROP + space)
+      await forgetRetention(space)
       usage.clear()
       log('dropped space ' + space.slice(0, 8) + ' (' + n + ' cores)')
     }
@@ -293,6 +306,98 @@ async function createSeeder ({ dataDir, bootstrap = null, log = () => {}, stateN
     await state.put(DEVICE + deviceKey, next)
     return true
   }
+
+  // --- retention ----------------------------------------------------------
+
+  async function setRetention (space, days, device) {
+    if (days === null || days === undefined) {
+      await forgetRetention(space)
+      log('space ' + space.slice(0, 8) + ' keeps everything')
+      return null
+    }
+    if (!Number.isInteger(days) || days < 1 || days > RETAIN_MAX_DAYS) throw new Error('Days must be a whole number from 1 to ' + RETAIN_MAX_DAYS)
+    await state.put(RETAIN + space, { ms: days * DAY_MS, by: device, at: Date.now() })
+    log('space ' + space.slice(0, 8) + ' keeps the last ' + days + ' day(s)')
+    return days
+  }
+
+  async function forgetRetention (space) {
+    await state.del(RETAIN + space)
+    const prefix = RETAIN_MARK + space + '/'
+    for await (const { key } of state.createReadStream({ gt: prefix, lt: prefix + '~' })) await state.del(key)
+  }
+
+  async function retention (space) {
+    const ms = (await state.get(RETAIN + space))?.value?.ms
+    return ms ? Math.round(ms / DAY_MS) : null
+  }
+
+  // Clears blocks 0..length of a core the way blind-peer's own gc does for a
+  // whole core: the record's cleared count moves up, so the download range
+  // starts there and the cleared blocks are not fetched again. Bytes cleared
+  // are estimated in proportion (hypercore gives the byte length at the head
+  // only), which is what the storage limit reads.
+  async function clearBelow (coreKey, length) {
+    if (peer.closing) return 0
+    const core = peer.store.get({ key: coreKey })
+    try {
+      await core.ready()
+      const tracker = peer.activeReplication.get(b4a.toString(core.discoveryKey, 'hex'))
+      if (!tracker) return 0
+      await tracker.refresh()
+      const rec = tracker.record
+      if (!rec || rec.announce) return 0
+      const upto = Math.min(length, tracker.core.length)
+      if (upto <= (rec.blocksCleared || 0)) return 0
+      const total = tracker.core.byteLength
+      rec.blocksCleared = upto
+      rec.bytesCleared = Math.floor(total * upto / Math.max(1, tracker.core.length))
+      rec.bytesAllocated = Math.max(0, total - rec.bytesCleared)
+      if (tracker.downloadRange) tracker.downloadRange.destroy()
+      tracker.downloadRange = tracker.core.download({ start: upto, end: -1 })
+      await tracker.core.clear(0, upto)
+      peer.db.updateCore(rec, tracker.id)
+      await peer.db.flush()
+      usage.clear()
+      return upto
+    } finally {
+      await core.close().catch(() => {})
+    }
+  }
+
+  // Notes each retained core's length now, then clears what it held more
+  // than the space's retention ago. `now` is for tests.
+  async function runRetention (now = Date.now()) {
+    let cleared = 0
+    const spaces = []
+    for await (const { key, value } of state.createReadStream({ gt: RETAIN, lt: RETAIN + '~' })) {
+      if (value && value.ms) spaces.push({ space: key.slice(RETAIN.length), ms: value.ms })
+    }
+    for (const { space, ms } of spaces) {
+      const prefix = CORE + space + '/'
+      for await (const { key } of state.createReadStream({ gt: prefix, lt: prefix + '~' })) {
+        const coreHex = key.slice(prefix.length)
+        const rec = await peer.db.getCoreRecord(b4a.from(coreHex, 'hex'))
+        if (!rec) continue
+        const marks = RETAIN_MARK + space + '/' + coreHex + '/'
+        await state.put(marks + String(now).padStart(15, '0'), { length: rec.length || 0 })
+        // The newest mark at least `ms` old says what was held back then.
+        let held = null
+        const old = []
+        for await (const { key: mk, value } of state.createReadStream({ gt: marks, lt: marks + String(now - ms).padStart(15, '0') + '~' })) {
+          if (held !== null) old.push(held.key)
+          held = { key: mk, length: value.length }
+        }
+        for (const k of old) await state.del(k)
+        if (held && held.length > 0 && await clearBelow(b4a.from(coreHex, 'hex'), held.length)) cleared++
+      }
+    }
+    if (cleared) log('retention cleared old blocks from ' + cleared + ' core(s)')
+    return cleared
+  }
+
+  const retainTimer = setInterval(() => runRetention().catch((e) => log('retention sweep failed: ' + e.message)), RETAIN_SWEEP_MS)
+  if (retainTimer.unref) retainTimer.unref()
 
   const dropTimer = setInterval(() => runDrops().catch((e) => log('drop sweep failed: ' + e.message)), DROP_SWEEP_MS)
   if (dropTimer.unref) dropTimer.unref()
@@ -462,12 +567,16 @@ async function createSeeder ({ dataDir, bootstrap = null, log = () => {}, stateN
         if (m.t === 'keyring-put') return reply(await putKeyring(m.rec, remote))
         if (m.t === 'keyring-get') return reply({ rec: await getKeyring(m.locator) })
         if (m.t === 'keyring-claim') return reply(await claimKeyring(m, conn))
-        if (m.t !== 'drop' && m.t !== 'keep') return
+        if (m.t !== 'drop' && m.t !== 'keep' && m.t !== 'retain') return
         if (!paired.has(remote)) return msg.send({ t: 'no', reason: 'Only paired devices can ask for that' })
         if (typeof m.bootstrap !== 'string' || !allowed.has(m.bootstrap)) return msg.send({ t: 'no', reason: 'This seeder does not hold that' })
         if (m.t === 'keep') return msg.send({ t: 'ok', cancelled: await keep(m.bootstrap, remote) })
-        // Only a device that backs the space up here may drop it.
+        // Only a device that backs the space up here may drop it or set how
+        // long it is kept.
         if (!(registrants.get(m.bootstrap) || new Set()).has(remote)) return msg.send({ t: 'no', reason: 'This device does not back that up here' })
+        if (m.t === 'retain') {
+          try { return msg.send({ t: 'ok', days: await setRetention(m.bootstrap, m.days, remote) }) } catch (e) { return msg.send({ t: 'no', reason: e.message }) }
+        }
         msg.send({ t: 'ok', due: await scheduleDrop(m.bootstrap, m.afterMs) })
       }
     })
@@ -494,6 +603,7 @@ async function createSeeder ({ dataDir, bootstrap = null, log = () => {}, stateN
 
   async function close () {
     clearInterval(dropTimer)
+    clearInterval(retainTimer)
     closePairing()
     await peer.close()
     await state.close()
@@ -519,6 +629,9 @@ async function createSeeder ({ dataDir, bootstrap = null, log = () => {}, stateN
     status,
     close,
     runDrops,
+    runRetention,
+    setRetention,
+    retention,
     scheduleDrop,
     drops,
     keep,
