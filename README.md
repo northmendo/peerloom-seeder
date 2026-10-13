@@ -137,6 +137,24 @@ the page and icon), optionally a pinned Node, the licences and
   The AppImage sets up the same service when first opened from the desktop.
   The build installs the x64 .deb with apt in a Debian 12 container (podman)
   and runs both, checking each one's update path.
+- **macOS:** `npm run dist:macos` builds
+  `PeerLoomSeeder-<version>-{arm64,x64}.pkg` (with `.sha256`). It stages
+  each payload here and signs, packages and notarizes on the Mac Mini over
+  ssh (`packaging/macos/build-pkg.sh`, Developer ID identities and the
+  `pearcircle-seeder-notary` profile in `buildkey.keychain`; empty
+  `APP_SIGN_ID`/`PKG_SIGN_ID` build an unsigned test package). The package
+  installs to `/usr/local/lib/peerloom-seeder` and runs the seeder as a
+  system LaunchDaemon (`com.peerloomllc.seeder`) as the installing user, so
+  it keeps running with nobody logged in. Data is in
+  `~/Library/Application Support/PeerLoom Seeder`. It adds "PeerLoom Seeder"
+  (opens the dashboard) and "Uninstall PeerLoom Seeder" to Applications.
+- **Windows:** `npm run dist:windows` builds `PeerLoomSeeder-Setup-<version>.exe`
+  (x64, unsigned, with `.sha256`) with makensis from
+  `packaging/windows/installer.nsi`. It installs to Program Files, runs the
+  seeder as a service through NSSM (LocalSystem, data in
+  `%ProgramData%\PeerLoom Seeder`), allows the seeder through the firewall
+  and adds a Start menu link to the dashboard. Running a newer installer over
+  it, also with `/S`, keeps the data.
 - **Umbrel / Docker:** `npm run image` builds
   `ghcr.io/peerloomllc/peerloom-seeder:<version>` for amd64 and arm64 from
   `packaging/umbrel/Dockerfile` (`PUSH=1` pushes, `ARCHS=amd64` builds one).

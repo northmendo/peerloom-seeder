@@ -4,7 +4,7 @@
 //   <dir>/bare, seeder/seeder.bundle   the seeder (Bare) with its addons
 //   <dir>/host/server.js               the host, one esbuild file, with
 //                                      index.html, icon.png and version.json
-//   <dir>/node                         a pinned Node binary (node: true;
+//   <dir>/node (node.exe)              a pinned Node binary (node: true;
 //                                      the Docker image has its own)
 //   <dir>/VERSION, LICENSE.txt, THIRD-PARTY-NOTICES.txt, licenses/
 //
@@ -54,16 +54,27 @@ function addLibatomic (target, dir) {
 }
 
 // Node's official build, checked against its published SHASUMS256.txt.
+// Linux and macOS ship a .tar.xz with bin/node; Windows a .zip with node.exe.
 function addNode (target, dir) {
   const [platform, arch] = target.split('-')
-  const name = 'node-v' + NODE_VERSION + '-' + platform + '-' + arch
+  const win = platform === 'win32'
+  const name = 'node-v' + NODE_VERSION + '-' + (win ? 'win' : platform) + '-' + arch
+  const archive = name + (win ? '.zip' : '.tar.xz')
   const base = 'https://nodejs.org/dist/v' + NODE_VERSION + '/'
   const sums = fs.readFileSync(download(base + 'SHASUMS256.txt', path.join(cache, 'node-v' + NODE_VERSION + '-SHASUMS256.txt')), 'utf8')
-  const sha = (sums.split('\n').find((l) => l.endsWith('  ' + name + '.tar.xz')) || '').split(' ')[0]
-  if (!sha) throw new Error('no checksum for ' + name)
-  const tar = download(base + name + '.tar.xz', path.join(cache, name + '.tar.xz'), sha)
-  execFileSync('tar', ['xJf', tar, '-C', dir, '--strip-components=2', name + '/bin/node'])
-  execFileSync('tar', ['xJf', tar, '-C', dir, '--strip-components=1', name + '/LICENSE'])
+  const sha = (sums.split('\n').find((l) => l.endsWith('  ' + archive)) || '').split(' ')[0]
+  if (!sha) throw new Error('no checksum for ' + archive)
+  const file = download(base + archive, path.join(cache, archive), sha)
+  if (win) {
+    const x = fs.mkdtempSync(path.join(os.tmpdir(), 'node-win-'))
+    execFileSync('unzip', ['-q', file, name + '/node.exe', name + '/LICENSE', '-d', x])
+    fs.copyFileSync(path.join(x, name, 'node.exe'), path.join(dir, 'node.exe'))
+    fs.copyFileSync(path.join(x, name, 'LICENSE'), path.join(dir, 'licenses', 'node-LICENSE'))
+    fs.rmSync(x, { recursive: true, force: true })
+    return
+  }
+  execFileSync('tar', ['xJf', file, '-C', dir, '--strip-components=2', name + '/bin/node'])
+  execFileSync('tar', ['xJf', file, '-C', dir, '--strip-components=1', name + '/LICENSE'])
   fs.renameSync(path.join(dir, 'LICENSE'), path.join(dir, 'licenses', 'node-LICENSE'))
 }
 
