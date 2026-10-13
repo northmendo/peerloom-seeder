@@ -14,6 +14,7 @@ The shared blind seeder (`README.md`). Proposal:
   for the host, interactive otherwise. Built by `scripts/build-bare.js`.
 - `host/` - the PeerLoom Seeder host (Node): `server.js` (dashboard API and
   login), `index.html` (the page), `seeder-process.js` (the IPC client),
+  `updates.js` (release check and Update now),
   `vendor/peerloom-host` (copy, never edit; `scripts/vendor-peerloom-host.js`).
 - `scripts/stage.js` - one package's payload; `scripts/dist-linux.js` (Linux
   tarballs + smoke), `scripts/build-umbrel-image.sh` (image), `packaging/`

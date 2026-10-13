@@ -11,7 +11,7 @@ const path = require('path')
 const root = path.join(__dirname, '..')
 const from = path.join(root, '..', 'peerloom-host')
 const to = path.join(root, 'host', 'vendor', 'peerloom-host')
-const FILES = ['dashboard-auth.js', 'tighten.js']
+const FILES = ['dashboard-auth.js', 'tighten.js', 'update-check.js', 'update-apply.js']
 
 function vendor () {
   fs.rmSync(to, { recursive: true, force: true })

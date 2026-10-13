@@ -18,6 +18,8 @@
 //   SEEDER_BUNDLE     the seeder bundle (default: seeder/ in a package, else
 //                     next to bare)
 //   SEEDER_BOOTSTRAP  host:port[,host:port], a test DHT
+//   SEEDER_NO_UPDATE_CHECK, SEEDER_UPDATE_LATEST_URL, SEEDER_UPDATE_DELAY
+//                     see updates.js
 
 const fs = require('node:fs')
 const os = require('node:os')
@@ -27,6 +29,7 @@ const { SeederProcess } = require('./seeder-process')
 const { toSvg } = require('../src/qr')
 const { FONT_CSS } = require('./fonts')
 const { createDashboardAuth, requireSafeBind, resolveDashboardPassword, PASSWORD_FILE } = require('./vendor/peerloom-host/dashboard-auth')
+const { createUpdates } = require('./updates')
 
 const root = path.join(__dirname, '..')
 const page = fs.readFileSync(path.join(__dirname, 'index.html'))
@@ -69,6 +72,7 @@ async function createHost ({
   barePath,
   bundlePath,
   bootstrap = null,
+  updates = null,
   log = () => {}
 }) {
   fs.mkdirSync(dataDir, { recursive: true })
@@ -92,6 +96,9 @@ async function createHost ({
     return value
   }
 
+  // { packaged } turns on the release check (host/updates.js); tests leave it off.
+  const upd = updates ? createUpdates({ version, packaged: !!updates.packaged, log }) : null
+
   const key = (body) => String(body.deviceKey || '')
   const routes = {
     'GET /api/status': async () => ({ ...await seeder.call('status'), uptime: Date.now() - startedAt, version, disk: await diskUse() }),
@@ -107,6 +114,8 @@ async function createHost ({
       if (bytes !== null && !(Number.isSafeInteger(bytes) && bytes > 0)) throw new Error('The limit must be a whole number of bytes, or off')
       return seeder.call('limit', { bytes })
     },
+    'GET /api/update': () => upd ? upd.state() : { available: false, off: 'not checked', canApply: false, apply: { status: 'idle' } },
+    'POST /api/update': () => { if (!upd) throw new Error('Updates are off'); return upd.start() },
     'GET /api/donate': () => Object.fromEntries(Object.entries(DONATE).map(([k, value]) => [k, { value, svg: toSvg(value, 200) }]))
   }
 
@@ -141,6 +150,7 @@ async function createHost ({
   log('dashboard on ' + url)
 
   async function close () {
+    if (upd) upd.stop()
     server.close()
     seeder.removeAllListeners('exit')
     await seeder.stop()
@@ -165,6 +175,7 @@ async function main () {
     password: env.SEEDER_PASSWORD || null,
     barePath,
     bundlePath,
+    updates: { packaged },
     bootstrap: env.SEEDER_BOOTSTRAP ? env.SEEDER_BOOTSTRAP.split(',').map((hp) => { const [host, port] = hp.split(':'); return { host, port: Number(port) } }) : null,
     log
   })

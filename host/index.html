@@ -81,6 +81,9 @@
   .toast.bad { background: color-mix(in srgb, var(--bad) 14%, var(--surface)); border: 1px solid color-mix(in srgb, var(--bad) 40%, var(--border)); }
   .toast.good { background: color-mix(in srgb, var(--good) 14%, var(--surface)); border: 1px solid color-mix(in srgb, var(--good) 40%, var(--border)); }
   .toast span { flex: 1; min-width: 0; }
+  .toast.update { background: color-mix(in srgb, var(--accent, var(--good)) 12%, var(--surface)); border: 1px solid color-mix(in srgb, var(--accent, var(--good)) 40%, var(--border)); }
+  .toast.update a { color: inherit; font-size: 13px; white-space: nowrap; }
+  .toast.update code { font-size: 12.5px; }
 
   .main { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; padding-bottom: 4px; }
   .stats { flex: 0 0 auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
@@ -220,6 +223,7 @@
     </div>
   </header>
 
+  <div class="toast update" id="upd" hidden><span id="upd-text"></span><a id="upd-link" target="_blank" rel="noopener" hidden>Release notes</a><button class="primary" id="upd-go" hidden>Update now</button></div>
   <div class="toast" id="toast" hidden><span id="toast-text"></span><button class="iconbtn sm" id="toast-x" aria-label="Dismiss" data-icon="X"></button></div>
 
   <div class="main">
@@ -386,10 +390,11 @@
 
   // Confirm dialog.
   let confirmDone
-  function askConfirm (title, message, label) {
+  function askConfirm (title, message, label, safe = false) {
     $('conf-title').textContent = title
     $('conf-msg').textContent = message
     $('conf-ok').textContent = label
+    $('conf-ok').className = safe ? 'primary' : 'danger solid'
     $('confov').hidden = false
     return new Promise((resolve) => { confirmDone = resolve })
   }
@@ -478,6 +483,42 @@
       const newest = devices.reduce((a, d) => (!a || (d.pairedAt || 0) > (a.pairedAt || 0) ? d : a), null)
       if (newest) { openApps.add(newest.app || OTHER); saveOpenApps(); renderDevices(devices) }
     }
+  }
+
+  // "A new version is out" (host/updates.js). Update now installs it where the
+  // package can (Windows, macOS); on Linux the bar says what to run.
+  let updBusy = false
+  async function refreshUpdate () {
+    let u
+    try { u = await api('GET', 'api/update') } catch { return }
+    const a = u.apply || {}
+    const bar = $('upd')
+    const text = $('upd-text')
+    $('upd-go').hidden = true
+    $('upd-link').hidden = !u.htmlUrl
+    if (u.htmlUrl) $('upd-link').href = u.htmlUrl
+    if (a.status === 'running') {
+      text.textContent = 'Downloading PeerLoom Seeder ' + (a.version || '') + '...'
+    } else if (a.status === 'restarting') {
+      text.textContent = 'Installing PeerLoom Seeder ' + (a.version || '') + '. The seeder restarts in a minute; this page reconnects by itself.'
+    } else if (a.status === 'error' || a.status === 'needs-manual') {
+      text.textContent = 'The update did not install: ' + (a.error || a.reason || 'unknown error') + '. You can download it from the release page.'
+    } else if (u.available) {
+      text.textContent = 'PeerLoom Seeder ' + u.latest + ' is out (this is ' + u.current + ').'
+      if (u.canApply) $('upd-go').hidden = false
+      else if (u.how) { text.textContent += ' To install it, run: '; const c = document.createElement('code'); c.textContent = u.how; text.appendChild(c) }
+      else text.textContent += ' Download it from the release page.'
+    } else { bar.hidden = true; return }
+    bar.hidden = false
+  }
+  $('upd-go').onclick = async () => {
+    if (updBusy) return
+    const ok = await askConfirm('Update PeerLoom Seeder?', 'It downloads the new version, checks it and installs it. The seeder stops for about a minute while it restarts.', 'Update', true)
+    if (!ok) return
+    updBusy = true
+    try { await api('POST', 'api/update') } catch (err) { if (err !== LOCKED) toast(err.message) }
+    updBusy = false
+    refreshUpdate()
   }
 
   // Paired devices grouped by the app they paired from, one section per app,
@@ -792,6 +833,8 @@
   setLive('connecting')
   refresh()
   setInterval(() => { if ($('login').hidden) refresh() }, 3000)
+  refreshUpdate()
+  setInterval(() => { if ($('login').hidden) refreshUpdate() }, 10000)
 </script>
 </body>
 </html>

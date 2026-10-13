@@ -155,6 +155,20 @@ the page and icon), optionally a pinned Node, the licences and
   `%ProgramData%\PeerLoom Seeder`), allows the seeder through the firewall
   and adds a Start menu link to the dashboard. Running a newer installer over
   it, also with `/S`, keeps the data.
+- **Updates (macOS, Windows):** the dashboard checks the releases repo
+  hourly (`host/updates.js`, through @peerloom/host's `update-check` and
+  `update-apply`, vendored) and shows "PeerLoom Seeder X is out" with
+  **Update now**. It downloads this machine's installer and checks it against
+  its `.sha256`. Windows runs the installer silently, which stops the
+  service, replaces the files and starts it again. On macOS the seeder runs
+  as a person and cannot install, so it drops a request in
+  `/Library/Application Support/PeerLoom Seeder/updates/requests` (writable
+  by that user only) for a root LaunchDaemon (`com.peerloomllc.seeder.updater`,
+  `packaging/macos/updater-helper.sh`) that checks the checksum, the
+  Developer ID team, notarization and that the version is newer before
+  installing. On Linux the bar says to run `peerloom-seeder update`; in a
+  container there is no check. `SEEDER_UPDATE_LATEST_URL` points it at a
+  local release (`scripts/serve-local-release.js`) for testing.
 - **Umbrel / Docker:** `npm run image` builds
   `ghcr.io/peerloomllc/peerloom-seeder:<version>` for amd64 and arm64 from
   `packaging/umbrel/Dockerfile` (`PUSH=1` pushes, `ARCHS=amd64` builds one).
