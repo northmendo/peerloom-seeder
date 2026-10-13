@@ -1,0 +1,15 @@
+libatomic.so.1 (in seeder/node_modules/rocksdb-native/prebuilds/linux-*/rocksdb-native/
+in the Linux download and the Umbrel image)
+
+The storage engine (rocksdb-native) needs this library, which a server or
+minimal Linux install often lacks, so the download carries its own copy.
+
+It is the unmodified libatomic from GCC 12.2.0, taken from Debian 12's
+libatomic1 package (version 12.2.0-14+deb12u1 in the Linux download). It
+is licensed under the GNU General Public License version 3 or later
+(libatomic-COPYING3) with the GCC Runtime Library Exception version 3.1
+(libatomic-COPYING.RUNTIME).
+
+Source code: Debian's gcc-12 source package, version 12.2.0-14+deb12u1, at
+https://deb.debian.org/debian/pool/main/g/gcc-12/ and
+https://sources.debian.org/src/gcc-12/12.2.0-14+deb12u1/

@@ -1,0 +1,18 @@
+# systemd user service for PeerLoom Seeder. `peerloom-seeder install-service`
+# installs it with ExecStart pointing at where you unpacked it. By hand:
+#   mkdir -p ~/.config/systemd/user && cp peerloom-seeder.service ~/.config/systemd/user/
+#   edit ExecStart if you unpacked somewhere other than ~/peerloom-seeder
+#   systemctl --user daemon-reload && systemctl --user enable --now peerloom-seeder
+#   loginctl enable-linger "$USER"     (keeps it running when you are logged out)
+[Unit]
+Description=PeerLoom Seeder (keeps your PeerLoom apps in sync; stores data it cannot read)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=%h/peerloom-seeder/peerloom-seeder
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
