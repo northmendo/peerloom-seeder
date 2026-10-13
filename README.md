@@ -23,8 +23,9 @@ First built as PearOffice's seeder. The plan is in the suite root,
   every space no other paired device registered.
 - **Keyrings.** A small sealed record per person, so a device restored from a
   recovery phrase can find its spaces again. Optional.
-- **App labels.** A device can send a label ("PearList") for the dashboard.
-  Apps for sensitive data send none.
+- **App labels.** A device can send a label ("PearList") for the dashboard,
+  which groups devices by it. Apps for sensitive data send none. The person
+  running the seeder can also give a device a name (`setDeviceName`).
 
 ## Use
 
@@ -86,13 +87,15 @@ Two processes:
   `node scripts/build-bare.js [platform-arch]` puts the runtime and bundle in
   `dist/<platform>-<arch>/`. With `--ipc` it answers newline JSON
   `{ id, method, args }` on stdio: `status`, `pair`, `devices`,
-  `forget { deviceKey }`, `limit { bytes | null }` and
-  `label { deviceKey, app }`, plus `ready` and `log` events.
+  `forget { deviceKey }`, `limit { bytes | null }`,
+  `label { deviceKey, app }` and `rename { deviceKey, name }`, plus `ready`
+  and `log` events.
 - **The host**, `host/server.js` (Node): starts the seeder
   (`host/seeder-process.js`) and serves the dashboard (`host/index.html`) on
-  port 8761: pairing link and QR code, paired devices with their app label,
-  spaces and bytes, rename, forget, the storage limit, the seeder key,
-  version, peers and disk use. Login is `@peerloom/host`'s dashboard-auth,
+  port 8761: pairing link and QR code, one expandable section per app
+  (devices grouped by the app name they sent at pairing, with spaces and
+  bytes; devices that sent none under "Other devices"), naming a device,
+  forget, the storage limit, the seeder key, version, peers and disk use. Login is `@peerloom/host`'s dashboard-auth,
   copied into `host/vendor/` by `node scripts/vendor-peerloom-host.js`: none
   on 127.0.0.1, `SEEDER_PASSWORD` or a generated password elsewhere.
   Settings are environment variables, listed at the top of the file.

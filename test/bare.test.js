@@ -61,6 +61,16 @@ test('bare seeder over ipc', async (t) => {
     await assert.rejects(seeder.call('label', { deviceKey: 'ffffffff', app: 'x' }), /No paired device/)
   })
 
+  await t.test('rename gives a device a name that survives pairing again', async () => {
+    assert.deepEqual(await seeder.call('rename', { deviceKey: A.key, name: 'Sam\'s phone' }), { ok: true })
+    const { link } = await seeder.call('pair')
+    await pair({ swarm: A.swarm, link, app: 'PearList' })
+    const [d] = await seeder.call('devices')
+    assert.equal(d.name, 'Sam\'s phone')
+    assert.equal(d.app, 'PearList')
+    await assert.rejects(seeder.call('rename', { deviceKey: 'ffffffff', name: 'x' }), /No paired device/)
+  })
+
   await t.test('limit sets, turns off and refuses junk', async () => {
     assert.deepEqual(await seeder.call('limit', { bytes: 5e9 }), { deviceLimitBytes: 5e9 })
     assert.equal((await seeder.call('status')).deviceLimitBytes, 5e9)

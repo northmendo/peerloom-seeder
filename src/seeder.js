@@ -266,7 +266,7 @@ async function createSeeder ({ dataDir, bootstrap = null, log = () => {}, stateN
       const deviceKey = key.slice(DEVICE.length)
       let spaces = 0
       for (const set of registrants.values()) if (set.has(deviceKey)) spaces++
-      out.push({ deviceKey, pairedAt: value && value.at, app: (value && value.app) || null, spaces, sheets: spaces, bytes: await usedBy(deviceKey) })
+      out.push({ deviceKey, pairedAt: value && value.at, app: (value && value.app) || null, name: (value && value.name) || null, spaces, sheets: spaces, bytes: await usedBy(deviceKey) })
     }
     return out
   }
@@ -277,6 +277,20 @@ async function createSeeder ({ dataDir, bootstrap = null, log = () => {}, stateN
     const row = (await state.get(DEVICE + deviceKey))?.value
     if (!row) return false
     await state.put(DEVICE + deviceKey, { ...row, app: cleanLabel(app) })
+    return true
+  }
+
+  // A name the person running the seeder gives a device ("Sam's phone"). The
+  // dashboard groups devices by `app` and shows this inside the group; a later
+  // pairing keeps it.
+  async function setDeviceName (deviceKey, name) {
+    const row = (await state.get(DEVICE + deviceKey))?.value
+    if (!row) return false
+    const clean = cleanLabel(name)
+    const next = { ...row }
+    if (clean) next.name = clean
+    else delete next.name
+    await state.put(DEVICE + deviceKey, next)
     return true
   }
 
@@ -511,6 +525,7 @@ async function createSeeder ({ dataDir, bootstrap = null, log = () => {}, stateN
     forgetDevice,
     devices,
     setDeviceLabel,
+    setDeviceName,
     setDeviceLimit,
     usedBy,
     isPaired: (k) => paired.has(hex(k)),

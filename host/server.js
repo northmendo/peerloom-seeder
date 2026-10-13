@@ -1,7 +1,7 @@
 // PeerLoom Seeder's host: starts the seeder as its own Bare process
 // (src/bare.js --ipc, through seeder-process.js) and serves the dashboard
-// (index.html) to pair a device, see what each one stores, rename its label,
-// forget it and set the storage limit per device. The same page on every
+// (index.html) to pair a device, see what each app's devices store, name a
+// device, forget it and set the storage limit per device. The same page on every
 // platform. See proposals/2026-10-12-peerloom-seeder-product.md.
 //
 // Login is @peerloom/host's dashboard-auth (vendored in vendor/peerloom-host):
@@ -101,7 +101,7 @@ async function createHost ({
       return { ...p, svg: toSvg(p.link, 240), now: Date.now() }
     },
     'POST /api/forget': (body) => seeder.call('forget', { deviceKey: key(body) }),
-    'POST /api/label': (body) => seeder.call('label', { deviceKey: key(body), app: typeof body.app === 'string' ? body.app : '' }),
+    'POST /api/rename': (body) => seeder.call('rename', { deviceKey: key(body), name: typeof body.name === 'string' ? body.name : '' }),
     'POST /api/limit': (body) => {
       const bytes = body.bytes == null ? null : Number(body.bytes)
       if (bytes !== null && !(Number.isSafeInteger(bytes) && bytes > 0)) throw new Error('The limit must be a whole number of bytes, or off')
