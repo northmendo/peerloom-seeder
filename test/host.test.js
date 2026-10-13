@@ -106,6 +106,9 @@ test('dashboard host', async (t) => {
 
   await t.test('donate QR codes, unknown routes and logout', async () => {
     assert.match((await api('GET', '/api/donate')).body.ln.svg, /^<svg /)
+    const upd = (await api('GET', '/api/update')).body
+    assert.equal(upd.available, false, 'no release check unless asked')
+    assert.equal((await api('POST', '/api/update')).status, 400)
     assert.equal((await api('GET', '/api/nope')).status, 404)
     await api('POST', '/api/logout')
     assert.equal((await api('GET', '/api/status')).status, 401)

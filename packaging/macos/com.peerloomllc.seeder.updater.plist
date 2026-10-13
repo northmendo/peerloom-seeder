@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- PeerLoom Seeder's privileged updater, copied to /Library/LaunchDaemons by
+     the .pkg postinstall. Runs updater-helper.sh as root when the seeder drops
+     an update request; the helper checks the package again before installing. -->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.peerloomllc.seeder.updater</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/local/lib/peerloom-seeder/updater-helper.sh</string>
+  </array>
+  <key>WatchPaths</key>
+  <array>
+    <string>/Library/Application Support/PeerLoom Seeder/updates/requests</string>
+  </array>
+  <key>StandardOutPath</key>
+  <string>/Library/Application Support/PeerLoom Seeder/updates/updater.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Library/Application Support/PeerLoom Seeder/updates/updater.log</string>
+  <key>ProcessType</key>
+  <string>Background</string>
+</dict>
+</plist>

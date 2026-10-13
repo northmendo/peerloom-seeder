@@ -42,9 +42,43 @@ sed -e "s|__USER__|$USER_NAME|g" \
     "$PREFIX/installer/$LABEL.plist" > "$PLIST_DST"
 chown root:wheel "$PLIST_DST"
 chmod 0644 "$PLIST_DST"
-launchctl bootout "system/$LABEL" 2>/dev/null || true
-launchctl enable "system/$LABEL" 2>/dev/null || true
-launchctl bootstrap system "$PLIST_DST" 2>/dev/null || launchctl load "$PLIST_DST" 2>/dev/null || true
+# bootout returns before the old job is gone, and bootstrapping while it is
+# still there fails ("Bootstrap failed: 5"), which left an updated seeder not
+# running. Wait for it to go, then retry the bootstrap until it is loaded.
+start_job () { # $1 label, $2 plist
+  launchctl bootout "system/$1" 2>/dev/null || true
+  for i in $(seq 1 40); do launchctl print "system/$1" >/dev/null 2>&1 || break; sleep 0.25; done
+  launchctl enable "system/$1" 2>/dev/null || true
+  for i in $(seq 1 10); do
+    launchctl bootstrap system "$2" 2>/dev/null && return 0
+    launchctl print "system/$1" >/dev/null 2>&1 && return 0
+    sleep 1
+  done
+  echo "PeerLoom Seeder: could not start $1" >&2
+  return 1
+}
+start_job "$LABEL" "$PLIST_DST" || true
+
+# The privileged updater: a root LaunchDaemon that installs a newer .pkg the
+# seeder downloaded and checked (updater-helper.sh checks it again). Only the
+# seeder's user may drop requests.
+UPDATES="/Library/Application Support/PeerLoom Seeder/updates"
+mkdir -p "$UPDATES/requests"
+chown root:wheel "/Library/Application Support/PeerLoom Seeder" "$UPDATES"
+chmod 0755 "/Library/Application Support/PeerLoom Seeder" "$UPDATES"
+chown "$USER_NAME:staff" "$UPDATES/requests"
+chmod 0700 "$UPDATES/requests"
+chown root:wheel "$PREFIX/updater-helper.sh"
+chmod 0755 "$PREFIX/updater-helper.sh"
+UPDATER_DST="/Library/LaunchDaemons/$LABEL.updater.plist"
+cp "$PREFIX/installer/$LABEL.updater.plist" "$UPDATER_DST"
+chown root:wheel "$UPDATER_DST"
+chmod 0644 "$UPDATER_DST"
+# When this install IS the updater's doing, the updater job is running it:
+# booting it out would kill this install. Load it only when it is not loaded.
+if ! launchctl print "system/$LABEL.updater" >/dev/null 2>&1; then
+  launchctl bootstrap system "$UPDATER_DST" 2>/dev/null || true
+fi
 
 # Two small apps in /Applications: open the dashboard, and uninstall. Built
 # here rather than shipped in the payload so the installer can drop the
