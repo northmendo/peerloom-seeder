@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- PeerLoom Seeder: the suite's green pear on dark teal, with a crescent
+       moon (works while your phones sleep) and a ring of three sync dots
+       (keeps your apps in step). Exported to PNG by scripts/icons.sh. -->
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="38%" r="75%">
+      <stop offset="0" stop-color="#14524a"/>
+      <stop offset="0.55" stop-color="#0b3631"/>
+      <stop offset="1" stop-color="#05201d"/>
+    </radialGradient>
+    <radialGradient id="pear" cx="40%" cy="38%" r="70%">
+      <stop offset="0" stop-color="#d4f07a"/>
+      <stop offset="0.45" stop-color="#9fd141"/>
+      <stop offset="1" stop-color="#4f8f1c"/>
+    </radialGradient>
+    <linearGradient id="leaf" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8fd04a"/>
+      <stop offset="1" stop-color="#3f7d1a"/>
+    </linearGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#9ff0d6" stop-opacity=".85"/>
+      <stop offset="1" stop-color="#9ff0d6" stop-opacity=".25"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#b8f06a" stop-opacity=".28"/>
+      <stop offset="1" stop-color="#b8f06a" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <circle cx="256" cy="296" r="190" fill="url(#glow)"/>
+  <!-- sync ring behind the pear -->
+  <ellipse cx="256" cy="300" rx="186" ry="74" fill="none" stroke="url(#ring)" stroke-width="7" transform="rotate(-18 256 300)"/>
+  <!-- pear -->
+  <path d="M256 128c-34 0-53 24-59 52-6 27-20 43-38 64-19 21-29 46-29 73 0 67 56 108 126 108s126-41 126-108c0-27-10-52-29-73-18-21-32-37-38-64-6-28-25-52-59-52z" fill="url(#pear)"/>
+  <path d="M256 128c34 0 53 24 59 52 6 27 20 43 38 64 19 21 29 46 29 73 0 67-56 108-126 108z" fill="#2f6a12" opacity=".22"/>
+  <ellipse cx="214" cy="250" rx="20" ry="44" fill="#fff" opacity=".22" transform="rotate(20 214 250)"/>
+  <path d="M256 134c0-26 5-48 19-68" fill="none" stroke="#4a3518" stroke-width="10" stroke-linecap="round"/>
+  <path d="M272 92c14-30 46-44 80-38-12 32-44 48-80 38z" fill="url(#leaf)"/>
+  <!-- front half of the ring, over the pear -->
+  <path d="M75 356 A186 74 -18 0 0 437 244" fill="none" stroke="url(#ring)" stroke-width="7"/>
+  <circle cx="84" cy="352" r="13" fill="#c9fbe8"/>
+  <circle cx="300" cy="372" r="13" fill="#c9fbe8"/>
+  <circle cx="430" cy="252" r="13" fill="#c9fbe8"/>
+  <!-- moon -->
+  <path d="M398 74a52 52 0 1 0 50 72a42 42 0 1 1-50-72z" fill="#f2f0d8"/>
+</svg>

@@ -10,6 +10,13 @@ The shared blind seeder (`README.md`). Proposal:
 - `src/client.js` - the device side: pairing, peering, requests.
 - `src/protocol.js` - names, links, topics. Both `peerloom` and the older
   `pearoffice` names.
+- `src/bare.js` - the PeerLoom Seeder process (Bare): `--ipc` newline JSON
+  for the host, interactive otherwise. Built by `scripts/build-bare.js`.
+- `host/` - the PeerLoom Seeder host (Node): `server.js` (dashboard API and
+  login), `index.html` (the page), `seeder-process.js` (the IPC client),
+  `vendor/peerloom-host` (copy, never edit; `scripts/vendor-peerloom-host.js`).
+- `assets/` - icon and listing copy. Product plan:
+  `/home/tim/peerloomllc/proposals/2026-10-12-peerloom-seeder-product.md`.
 - `src/keyringRecord.js` - keyring checks. Its namespaces say `pearoffice/` and
   must stay: they are signed into stored records.
 

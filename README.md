@@ -75,12 +75,46 @@ The seeder also answers PearOffice's older names (`pearoffice://seeder`,
 `pearoffice/seeder-pair/1`, `pearoffice/seeder/1`), so PearOffice versions from
 before the shared seeder keep working. `src/protocol.js` has the exchange.
 
-## Run one
+## PeerLoom Seeder (the product)
+
+The seeder people install: one package for Umbrel, Start9, Linux, macOS and
+Windows (plan: suite `proposals/2026-10-12-peerloom-seeder-product.md`).
+Two processes:
+
+- **The seeder**, `src/bare.js`, run by the Bare runtime from a `bare-pack`
+  bundle, so the native addons and hypercore patches match the apps.
+  `node scripts/build-bare.js [platform-arch]` puts the runtime and bundle in
+  `dist/<platform>-<arch>/`. With `--ipc` it answers newline JSON
+  `{ id, method, args }` on stdio: `status`, `pair`, `devices`,
+  `forget { deviceKey }`, `limit { bytes | null }` and
+  `label { deviceKey, app }`, plus `ready` and `log` events.
+- **The host**, `host/server.js` (Node): starts the seeder
+  (`host/seeder-process.js`) and serves the dashboard (`host/index.html`) on
+  port 8761: pairing link and QR code, paired devices with their app label,
+  spaces and bytes, rename, forget, the storage limit, the seeder key,
+  version, peers and disk use. Login is `@peerloom/host`'s dashboard-auth,
+  copied into `host/vendor/` by `node scripts/vendor-peerloom-host.js`: none
+  on 127.0.0.1, `SEEDER_PASSWORD` or a generated password elsewhere.
+  Settings are environment variables, listed at the top of the file.
+
+A new data folder starts with a storage limit of 25 GB per device. A folder
+a PearOffice seeder set up (`pearoffice-state/`) opens as is: same seeder
+key, devices and files, and no limit added.
+
+`npm run dashboard` builds and runs it with data in `~/.peerloom-seeder`.
+Branding is in `assets/`: `icon.svg` (exported by `scripts/icons.sh`) and
+`listing.md` (store and website copy).
+
+## Run one from Node
 
 `node bin/peerloom-seeder.js --data <folder>` prints a pairing link and takes
 `pair`, `status`, `devices`, `limit <bytes|off>` and `forget <key>` on stdin.
+For development; the product runs the Bare build.
 
 ## Test
 
-`npm test`: pairing under both names, labels, admission, requests, the storage
-limit and forgetting, over a local DHT testnet.
+`npm test` builds the Bare bundle, then runs, over a local DHT testnet:
+the library (pairing under both names, labels, admission, requests, the
+storage limit and forgetting), the Bare seeder over `--ipc` (every method,
+the 25 GB default, a PearOffice folder opening as is) and the dashboard host
+(login and every API route, with a device pairing from its link).
