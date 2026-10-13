@@ -169,6 +169,11 @@ the page and icon), optionally a pinned Node, the licences and
   installing. On Linux the bar says to run `peerloom-seeder update`; in a
   container there is no check. `SEEDER_UPDATE_LATEST_URL` points it at a
   local release (`scripts/serve-local-release.js`) for testing.
+- **Start9:** `packaging/start9/` is the StartOS 0.4 package (id
+  `peerloom-seeder`, x86_64), from PearOffice's `start9/seeder`. It runs the
+  Umbrel image (build it first with `ARCHS=amd64`), asks for a dashboard
+  password (the **Show password** action) and has no update check. Build with
+  `npm install && make` there; see its README.
 - **Umbrel / Docker:** `npm run image` builds
   `ghcr.io/peerloomllc/peerloom-seeder:<version>` for amd64 and arm64 from
   `packaging/umbrel/Dockerfile` (`PUSH=1` pushes, `ARCHS=amd64` builds one).
