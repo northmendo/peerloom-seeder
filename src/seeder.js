@@ -146,7 +146,11 @@ async function createSeeder ({ dataDir, bootstrap = null, log = () => {}, stateN
     if (!fresh && cached && Date.now() - cached.at < USAGE_CACHE_MS) return cached.bytes
     let bytes = 0
     for (const [space, set] of registrants) if (set.has(device)) bytes += await bytesOf(space)
-    usage.set(device, { at: Date.now(), bytes })
+    // Nothing is counted until blind-peer has recorded a downloaded core, so a
+    // just-paired device reads 0 at first. Keep only real readings, or the
+    // dashboard shows 0 for a minute after the data arrived.
+    if (bytes > 0) usage.set(device, { at: Date.now(), bytes })
+    else usage.delete(device)
     return bytes
   }
 
