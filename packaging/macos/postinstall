@@ -1,0 +1,113 @@
+#!/bin/bash
+# PeerLoom Seeder .pkg postinstall (runs as root). Installs the service as a
+# system LaunchDaemon that runs as the person installing, adds "PeerLoom
+# Seeder" and "Uninstall PeerLoom Seeder" to /Applications and, on a first
+# install, opens the dashboard. Adapted from PearCircle's seeder launcher.
+set -euo pipefail
+
+PREFIX=/usr/local/lib/peerloom-seeder
+LABEL=com.peerloomllc.seeder
+PLIST_DST="/Library/LaunchDaemons/$LABEL.plist"
+PORT=8761
+
+# Who the service runs as. An update keeps the existing owner, so an update
+# installed with nobody at the console does not move the service to root.
+USER_NAME=""
+if [ -f "$PLIST_DST" ]; then
+  USER_NAME=$(/usr/libexec/PlistBuddy -c 'Print :UserName' "$PLIST_DST" 2>/dev/null || true)
+fi
+if [ -z "$USER_NAME" ]; then USER_NAME=$(stat -f %Su /dev/console); fi
+if [ -z "$USER_NAME" ] || [ "$USER_NAME" = root ] || [ "$USER_NAME" = _mbsetupuser ]; then
+  echo "PeerLoom Seeder: install it while logged in as the person who will use it" >&2
+  exit 1
+fi
+USER_UID=$(id -u "$USER_NAME")
+USER_HOME=$(dscl . -read "/Users/$USER_NAME" NFSHomeDirectory 2>/dev/null | awk '{print $2}')
+[ -n "$USER_HOME" ] || USER_HOME="/Users/$USER_NAME"
+DATA_DIR="$USER_HOME/Library/Application Support/PeerLoom Seeder"
+
+IS_UPDATE=0
+[ -f "$PLIST_DST" ] && IS_UPDATE=1
+
+mkdir -p "$DATA_DIR"
+chown "$USER_NAME:staff" "$DATA_DIR"
+chmod 0700 "$DATA_DIR"
+LOG="$DATA_DIR/seeder.log"
+LOG_OFFSET=$(wc -c < "$LOG" 2>/dev/null | tr -d ' ' || true)
+[ -n "$LOG_OFFSET" ] || LOG_OFFSET=0
+
+sed -e "s|__USER__|$USER_NAME|g" \
+    -e "s|__USER_HOME__|$USER_HOME|g" \
+    -e "s|__DATA_DIR__|$DATA_DIR|g" \
+    "$PREFIX/installer/$LABEL.plist" > "$PLIST_DST"
+chown root:wheel "$PLIST_DST"
+chmod 0644 "$PLIST_DST"
+launchctl bootout "system/$LABEL" 2>/dev/null || true
+launchctl enable "system/$LABEL" 2>/dev/null || true
+launchctl bootstrap system "$PLIST_DST" 2>/dev/null || launchctl load "$PLIST_DST" 2>/dev/null || true
+
+# Two small apps in /Applications: open the dashboard, and uninstall. Built
+# here rather than shipped in the payload so the installer can drop the
+# quarantine flag and register them with Launch Services.
+set +e
+make_app () { # $1 name, $2 bundle id, $3 executable name, $4 script
+  local app="/Applications/$1.app"
+  rm -rf "$app"
+  mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
+  cat > "$app/Contents/Info.plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleExecutable</key><string>$3</string>
+  <key>CFBundleIconFile</key><string>AppIcon</string>
+  <key>CFBundleIdentifier</key><string>$2</string>
+  <key>CFBundleName</key><string>$1</string>
+  <key>CFBundleDisplayName</key><string>$1</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleShortVersionString</key><string>$(cat "$PREFIX/VERSION")</string>
+  <key>LSUIElement</key><true/>
+</dict>
+</plist>
+PLIST
+  printf '%s\n' "$4" > "$app/Contents/MacOS/$3"
+  chmod 0755 "$app/Contents/MacOS/$3"
+  cp "$PREFIX/AppIcon.icns" "$app/Contents/Resources/AppIcon.icns" 2>/dev/null
+  /usr/bin/xattr -dr com.apple.quarantine "$app" 2>/dev/null
+  /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$app" 2>/dev/null
+}
+
+make_app "PeerLoom Seeder" com.peerloomllc.seeder.open open-dashboard '#!/bin/bash
+# Open the dashboard; say so if the service is not answering.
+if /usr/bin/curl -fsS --max-time 3 -o /dev/null http://127.0.0.1:'"$PORT"'/; then
+  exec /usr/bin/open http://127.0.0.1:'"$PORT"'/
+fi
+/usr/bin/osascript -e "display dialog \"PeerLoom Seeder is not running.\n\nIts log is in ~/Library/Application Support/PeerLoom Seeder/seeder.log\" with title \"PeerLoom Seeder\" buttons {\"OK\"} default button \"OK\" with icon caution"'
+
+make_app "Uninstall PeerLoom Seeder" com.peerloomllc.seeder.uninstall uninstall '#!/bin/bash
+SCRIPT='"$PREFIX"'/uninstall.sh
+[ -f "$SCRIPT" ] || { /usr/bin/osascript -e "display dialog \"PeerLoom Seeder is not installed.\" with title \"Uninstall PeerLoom Seeder\" buttons {\"OK\"} default button \"OK\""; exit 0; }
+GO=$(/usr/bin/osascript -e "try" -e "display dialog \"Uninstall PeerLoom Seeder?\n\nThis stops the background service and removes the program. Your paired devices and backups stay in ~/Library/Application Support/PeerLoom Seeder unless you also remove them.\" buttons {\"Cancel\", \"Uninstall\", \"Uninstall and delete data\"} default button \"Uninstall\" cancel button \"Cancel\" with title \"Uninstall PeerLoom Seeder\" with icon caution" -e "return button returned of result" -e "on error" -e "return \"\"" -e "end try")
+case "$GO" in "Uninstall") FLAG=--keep ;; "Uninstall and delete data") FLAG=--purge ;; *) exit 0 ;; esac
+OUT=$(/usr/bin/osascript -e "do shell script \"/bin/bash $SCRIPT $FLAG 2>&1\" with administrator privileges" 2>&1) \
+  && /usr/bin/osascript -e "display dialog \"PeerLoom Seeder has been uninstalled.\" with title \"Uninstall PeerLoom Seeder\" buttons {\"OK\"} default button \"OK\"" \
+  || /usr/bin/osascript -e "display dialog \"Uninstall did not finish:\n\n$OUT\" with title \"Uninstall PeerLoom Seeder\" buttons {\"OK\"} default button \"OK\" with icon stop"'
+set -e
+
+if [ "$IS_UPDATE" = 1 ]; then
+  echo "PeerLoom Seeder updated and restarted"
+  exit 0
+fi
+
+# First install: wait for the dashboard and open it for the person.
+set +e
+for i in $(seq 1 40); do
+  /usr/bin/curl -fsS --max-time 2 -o /dev/null "http://127.0.0.1:$PORT/" && break
+  sleep 0.5
+done
+if /usr/bin/curl -fsS --max-time 2 -o /dev/null "http://127.0.0.1:$PORT/"; then
+  launchctl asuser "$USER_UID" sudo -u "$USER_NAME" /usr/bin/open "http://127.0.0.1:$PORT/" 2>/dev/null
+else
+  echo "PeerLoom Seeder did not answer within 20 s; see $LOG" >&2
+fi
+exit 0

@@ -17,7 +17,9 @@ The shared blind seeder (`README.md`). Proposal:
   `vendor/peerloom-host` (copy, never edit; `scripts/vendor-peerloom-host.js`).
 - `scripts/stage.js` - one package's payload; `scripts/dist-linux.js` (Linux
   tarballs + smoke), `scripts/build-umbrel-image.sh` (image), `packaging/`
-  (Linux launcher and unit, Umbrel Dockerfile and store entry, licences).
+  (Linux launcher and unit, Umbrel Dockerfile and store entry, macOS pkg
+  files, Windows NSIS script and NSSM, licences); `scripts/dist-macos.js`
+  (signs and notarizes on the Mac Mini), `scripts/dist-windows.js`.
 - `assets/` - icon and listing copy. Product plan:
   `/home/tim/peerloomllc/proposals/2026-10-12-peerloom-seeder-product.md`.
 - `src/keyringRecord.js` - keyring checks. Its namespaces say `pearoffice/` and

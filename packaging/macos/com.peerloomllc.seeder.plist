@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- PeerLoom Seeder service, copied to /Library/LaunchDaemons by the .pkg
+     postinstall with the __PLACEHOLDERS__ filled in.
+
+     A system LaunchDaemon that runs as the person who installed it (from
+     PearCircle's seeder launcher). An agent in ~/Library/LaunchAgents is torn
+     down at logout and the seeder must keep running with nobody logged in.
+     Running as that user keeps the data folder in their home owned by them.
+     The data folder is passed in SEEDER_DATA because launchd does not give a
+     daemon the login session's HOME. -->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.peerloomllc.seeder</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/local/lib/peerloom-seeder/node</string>
+    <string>/usr/local/lib/peerloom-seeder/host/server.js</string>
+  </array>
+  <key>UserName</key>
+  <string>__USER__</string>
+  <key>GroupName</key>
+  <string>staff</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>HOME</key>
+    <string>__USER_HOME__</string>
+    <key>SEEDER_DATA</key>
+    <string>__DATA_DIR__</string>
+  </dict>
+  <key>Umask</key>
+  <integer>63</integer>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+  <key>StandardOutPath</key>
+  <string>__DATA_DIR__/seeder.log</string>
+  <key>StandardErrorPath</key>
+  <string>__DATA_DIR__/seeder.log</string>
+  <key>ProcessType</key>
+  <string>Background</string>
+</dict>
+</plist>
