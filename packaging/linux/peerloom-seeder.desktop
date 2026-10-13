@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=PeerLoom Seeder
+GenericName=Seeder dashboard
+Comment=Keeps your PeerLoom apps in sync while your phones sleep
+Exec=peerloom-seeder open
+Icon=peerloom-seeder
+Terminal=false
+Categories=Network;
+Keywords=peerloom;seeder;pearlist;pearoffice;sync;backup;

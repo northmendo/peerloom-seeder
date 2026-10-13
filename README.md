@@ -117,6 +117,16 @@ the page and icon), optionally a pinned Node, the licences and
   `remove-service` and `update`, a systemd user unit, README), then unpacks
   the x64 one and checks it starts, answers and updates against a fake
   local release (`scripts/serve-local-release.js`).
+- **Linux installers:** `npm run dist:installers` builds
+  `peerloom-seeder_<version>_{amd64,arm64}.deb` and
+  `PeerLoomSeeder-<version>-{x86_64,aarch64}.AppImage` (with `.sha256`)
+  from the same payload and `packaging/linux/`. The .deb installs to
+  `/opt/peerloom-seeder`, starts a systemd user service for the installing
+  user and adds a polkit rule so `peerloom-seeder update` installs the next
+  .deb without a password (`updater-helper.sh` checks the checksum again).
+  The AppImage sets up the same service when first opened from the desktop.
+  The build installs the x64 .deb with apt in a Debian 12 container (podman)
+  and runs both, checking each one's update path.
 - **Umbrel / Docker:** `npm run image` builds
   `ghcr.io/peerloomllc/peerloom-seeder:<version>` for amd64 and arm64 from
   `packaging/umbrel/Dockerfile` (`PUSH=1` pushes, `ARCHS=amd64` builds one).

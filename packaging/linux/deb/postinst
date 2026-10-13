@@ -1,0 +1,61 @@
+#!/bin/bash
+# Debian postinst (from PearCircle's seeder): installs and starts the PeerLoom
+# Seeder systemd user service for the user who ran the install, and the
+# polkit rule that lets that user run updater-helper.sh without a password.
+# dpkg runs this as root; $SUDO_USER names the person behind `sudo apt install`.
+# Nothing in here may fail the install.
+set -e
+INSTALL_ROOT=/opt/peerloom-seeder
+
+refresh_desktop_caches () {
+  ( set +e
+    command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database -q /usr/share/applications 2>/dev/null
+    command -v gtk-update-icon-cache >/dev/null 2>&1 && gtk-update-icon-cache -qtf /usr/share/icons/hicolor 2>/dev/null
+  ) || true
+  return 0
+}
+
+install_updater () {
+  ( set +e
+    chown root:root "$INSTALL_ROOT/updater-helper.sh"
+    chmod 0755 "$INSTALL_ROOT/updater-helper.sh"
+    if [ -d /etc/polkit-1/rules.d ]; then
+      sed "s|__USER__|$1|g" "$INSTALL_ROOT/updater-helper.rules.in" > /etc/polkit-1/rules.d/49-peerloom-seeder-updater.rules
+      chmod 0644 /etc/polkit-1/rules.d/49-peerloom-seeder-updater.rules
+    else
+      echo "peerloom-seeder: no polkit rules folder; 'peerloom-seeder update' will ask for your password."
+    fi
+  ) || true
+  return 0
+}
+
+refresh_desktop_caches
+
+# An update through updater-helper.sh (pkexec) has no SUDO_USER: the service
+# and rule are already in place and the helper restarts the service itself.
+TARGET_USER="${SUDO_USER:-}"
+if [ -z "$TARGET_USER" ] || [ "$TARGET_USER" = "root" ]; then
+  echo "peerloom-seeder: installed. As your normal user, run: peerloom-seeder install-service"
+  exit 0
+fi
+TARGET_HOME=$(getent passwd "$TARGET_USER" | cut -d: -f6)
+TARGET_UID=$(id -u "$TARGET_USER")
+UNIT_DIR="$TARGET_HOME/.config/systemd/user"
+# Remembered so removing it from a software centre (no SUDO_USER) can clean up.
+echo "$TARGET_USER" > "$INSTALL_ROOT/.install-user" 2>/dev/null || true
+install -d -o "$TARGET_USER" -g "$TARGET_USER" "$TARGET_HOME/.config" "$TARGET_HOME/.config/systemd" "$UNIT_DIR"
+sed "s|^ExecStart=.*|ExecStart=$INSTALL_ROOT/peerloom-seeder run|" "$INSTALL_ROOT/peerloom-seeder.service" > "$UNIT_DIR/peerloom-seeder.service"
+chown "$TARGET_USER:$TARGET_USER" "$UNIT_DIR/peerloom-seeder.service"
+# Linger keeps the user's services running with nobody logged in, and at boot.
+loginctl enable-linger "$TARGET_USER" 2>/dev/null || true
+export XDG_RUNTIME_DIR="/run/user/$TARGET_UID"
+for _ in 1 2 3 4 5 6; do [ -d "$XDG_RUNTIME_DIR" ] && break; sleep 0.5; done
+runuser -u "$TARGET_USER" -- systemctl --user daemon-reload 2>/dev/null || true
+if runuser -u "$TARGET_USER" -- systemctl --user enable peerloom-seeder.service 2>/dev/null; then
+  runuser -u "$TARGET_USER" -- systemctl --user restart peerloom-seeder.service 2>/dev/null || true
+  echo "peerloom-seeder: running for $TARGET_USER. Open http://127.0.0.1:8761 to pair a phone."
+else
+  echo "peerloom-seeder: installed. As $TARGET_USER, run: peerloom-seeder install-service"
+fi
+install_updater "$TARGET_USER"
+exit 0

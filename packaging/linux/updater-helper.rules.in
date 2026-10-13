@@ -1,0 +1,11 @@
+// Lets one user (__USER__, filled in by the .deb's postinst) run
+// /opt/peerloom-seeder/updater-helper.sh as root without a password, so
+// `peerloom-seeder update` can install a .deb update. Nothing else: the
+// script is root-owned and checks the download's checksum and package name.
+polkit.addRule(function (action, subject) {
+  if (action.id === 'org.freedesktop.policykit.exec' &&
+      action.lookup('program') === '/opt/peerloom-seeder/updater-helper.sh' &&
+      subject.user === '__USER__') {
+    return polkit.Result.YES
+  }
+})
