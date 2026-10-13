@@ -80,9 +80,13 @@ test('dashboard host', async (t) => {
     assert.equal(d.app, 'PearList')
   })
 
-  await t.test('rename a device', async () => {
-    assert.equal((await api('POST', '/api/label', { deviceKey: A.key, app: 'Kitchen tablet' })).status, 200)
-    assert.equal((await api('GET', '/api/devices')).body[0].app, 'Kitchen tablet')
+  await t.test('name a device; it stays under its app', async () => {
+    assert.equal((await api('POST', '/api/rename', { deviceKey: A.key, name: 'Kitchen tablet' })).status, 200)
+    const [d] = (await api('GET', '/api/devices')).body
+    assert.equal(d.name, 'Kitchen tablet')
+    assert.equal(d.app, 'PearList')
+    await api('POST', '/api/rename', { deviceKey: A.key, name: '' })
+    assert.equal((await api('GET', '/api/devices')).body[0].name, null)
   })
 
   await t.test('storage limit: set, refuse junk, turn off', async () => {

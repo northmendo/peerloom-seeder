@@ -73,9 +73,14 @@ async function main () {
       if (n !== null && !(Number.isSafeInteger(n) && n > 0)) throw new Error('The limit must be a whole number of bytes, or off')
       return { deviceLimitBytes: await seeder.setDeviceLimit(n) }
     },
-    // app: the label the dashboard shows; empty clears it
+    // app: which app the device is (it sends this when it pairs); empty clears it
     label: async ({ deviceKey, app }) => {
       if (!await seeder.setDeviceLabel(await deviceKeyOf(deviceKey), app)) throw new Error('No paired device starts with that')
+      return { ok: true }
+    },
+    // name: what the dashboard calls the device; empty clears it
+    rename: async ({ deviceKey, name }) => {
+      if (!await seeder.setDeviceName(await deviceKeyOf(deviceKey), name)) throw new Error('No paired device starts with that')
       return { ok: true }
     }
   }

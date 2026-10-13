@@ -107,6 +107,17 @@
   .item-name.label { font-family: inherit; font-size: 14px; font-weight: 600; }
   .item-name.label.none { color: var(--subtle); font-weight: 500; }
   .item-actions { display: flex; gap: 4px; flex: 0 0 auto; }
+  .appsec { border-radius: 10px; }
+  .appsec + .appsec { margin-top: 4px; }
+  .appsec.open { background: var(--surface-2); }
+  .appsec.enter { animation: rowIn .24s var(--ease) both; }
+  .apphead { display: flex; align-items: center; gap: 12px; width: 100%; padding: 11px 12px; border: 0; border-radius: 10px; background: transparent; color: var(--text); text-align: left; cursor: pointer; }
+  .apphead:hover { background: var(--surface-hover); }
+  .item-icon.app { font-weight: 700; font-size: 15px; }
+  .chev { color: var(--subtle); transition: transform var(--dur-fast) var(--ease); }
+  .appsec.open .chev { transform: rotate(180deg); }
+  .appbody { padding: 0 6px 8px 22px; }
+  .hint.left { text-align: left; padding: 0 12px 6px; }
   .bar { height: 4px; border-radius: 2px; background: var(--surface-2); margin-top: 6px; overflow: hidden; max-width: 220px; }
   .bar > span { display: block; height: 100%; background: var(--primary); }
   .bar.full > span { background: var(--bad); }
@@ -219,7 +230,7 @@
       <div class="stat"><div class="num small" id="s-up">-</div><div class="lbl">uptime</div></div>
     </div>
     <div class="panel">
-      <div class="panel-head"><h2>Paired devices</h2><span class="count" id="dcount"></span></div>
+      <div class="panel-head"><h2>Apps</h2><span class="count" id="dcount"></span></div>
       <div class="list" id="devices"><div class="empty">Connecting to the seeder.</div></div>
     </div>
     <div class="panel">
@@ -279,7 +290,7 @@
 <div class="overlay" id="nameov" hidden><form class="modal narrow" id="name-form">
   <div class="modal-head"><h3>Rename device</h3></div>
   <div class="stack">
-    <p class="hint">A name for this device on the dashboard, like "PearList on Sam's phone". The app sends a new one if it pairs again.</p>
+    <p class="hint">A name for this device on the dashboard, like "Sam's phone". It stays under its app. Leave it empty to go back to its key.</p>
     <div class="field"><input id="name-input" maxlength="40" aria-label="Name"></div>
     <div class="row"><button class="ghost" type="button" id="name-cancel">Cancel</button><button class="primary" type="submit">Save</button></div>
   </div>
@@ -313,6 +324,7 @@
     "SignOut":"M120,216a8,8,0,0,1-8,8H48a8,8,0,0,1-8-8V40a8,8,0,0,1,8-8h64a8,8,0,0,1,0,16H56V208h56A8,8,0,0,1,120,216Zm109.66-93.66-40-40a8,8,0,0,0-11.32,11.32L204.69,120H112a8,8,0,0,0,0,16h92.69l-26.35,26.34a8,8,0,0,0,11.32,11.32l40-40A8,8,0,0,0,229.66,122.34Z",
     "DeviceMobile":"M176,16H80A24,24,0,0,0,56,40V216a24,24,0,0,0,24,24h96a24,24,0,0,0,24-24V40A24,24,0,0,0,176,16ZM72,64H184V192H72Zm8-32h96a8,8,0,0,1,8,8v8H72V40A8,8,0,0,1,80,32Zm96,192H80a8,8,0,0,1-8-8v-8H184v8A8,8,0,0,1,176,224Z",
     "Copy":"M216,32H88a8,8,0,0,0-8,8V80H40a8,8,0,0,0-8,8V216a8,8,0,0,0,8,8H168a8,8,0,0,0,8-8V176h40a8,8,0,0,0,8-8V40A8,8,0,0,0,216,32ZM160,208H48V96H160Zm48-48H176V88a8,8,0,0,0-8-8H96V48H208Z",
+    "CaretDown":"M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z",
     "PencilSimple":"M227.31,73.37,182.63,28.68a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H92.69A15.86,15.86,0,0,0,104,219.31L227.31,96a16,16,0,0,0,0-22.63ZM92.69,208H48V163.31l88-88L180.69,120ZM192,108.68,147.31,64l24-24L216,84.68Z",
     "Check":"M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z",
     "QrCode":"M104,40H56A16,16,0,0,0,40,56v48a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V56A16,16,0,0,0,104,40Zm0,64H56V56h48v48Zm0,32H56a16,16,0,0,0-16,16v48a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V152A16,16,0,0,0,104,136Zm0,64H56V152h48v48ZM200,40H152a16,16,0,0,0-16,16v48a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V56A16,16,0,0,0,200,40Zm0,64H152V56h48v48Zm-64,72V144a8,8,0,0,1,16,0v32a8,8,0,0,1-16,0Zm80-16a8,8,0,0,1-8,8H184v40a8,8,0,0,1-8,8H144a8,8,0,0,1,0-16h24V144a8,8,0,0,1,16,0v8h24A8,8,0,0,1,216,160Zm0,32v16a8,8,0,0,1-16,0V192a8,8,0,0,1,16,0Z"}
@@ -423,11 +435,13 @@
   let shown = new Set()
   let pairedAtOpen = null
   let lastStatus = null
+  let lastDevices = []
 
   async function refresh () {
     let s, devices
     try {
       [s, devices] = await Promise.all([api('GET', 'api/status'), api('GET', 'api/devices')])
+      lastDevices = devices
     } catch (err) {
       if (err === LOCKED) return
       $('app').hidden = false
@@ -460,67 +474,139 @@
     if (pairedAtOpen !== null && s.pairedDevices > pairedAtOpen) {
       closePair()
       toast('Paired. That device can now back up here.', 'good')
+      // Open the section the new device went into.
+      const newest = devices.reduce((a, d) => (!a || (d.pairedAt || 0) > (a.pairedAt || 0) ? d : a), null)
+      if (newest) { openApps.add(newest.app || OTHER); saveOpenApps(); renderDevices(devices) }
     }
   }
 
+  // Paired devices grouped by the app they paired from, one section per app,
+  // in the order each app first paired. Apps that keep their data private
+  // send no app name; theirs go under "Other devices", last.
+  const OTHER = '\u0000other'
+  function loadOpenApps () { try { return new Set(JSON.parse(localStorage.getItem('open-apps') || '[]')) } catch { return new Set() } }
+  let openApps = loadOpenApps()
+  function saveOpenApps () { try { localStorage.setItem('open-apps', JSON.stringify([...openApps])) } catch {} }
+  let knownApps = null
+
+  function deviceRow (d, enter) {
+    const row = document.createElement('div')
+    row.className = 'item' + (enter ? ' enter' : '')
+    const ic = document.createElement('div')
+    ic.className = 'item-icon'
+    ic.innerHTML = icon('DeviceMobile')
+    const main = document.createElement('div')
+    main.className = 'item-main'
+    const name = document.createElement('div')
+    name.className = 'item-name label' + (d.name ? '' : ' none')
+    name.textContent = d.name || 'Device ' + d.deviceKey.slice(0, 6)
+    name.title = d.deviceKey
+    const state = document.createElement('div')
+    state.className = 'item-state'
+    const limit = lastStatus && lastStatus.deviceLimitBytes
+    state.textContent = d.spaces + ' ' + plural(d.spaces, 'space', 'spaces') + ', ' + fmtBytes(d.bytes || 0) + (limit ? ' of ' + fmtBytes(limit) : '') + (d.pairedAt ? ', paired ' + new Date(d.pairedAt).toLocaleDateString() : '')
+    main.append(name, state)
+    if (limit) {
+      const bar = document.createElement('div')
+      bar.className = 'bar' + ((d.bytes || 0) >= limit ? ' full' : '')
+      const fill = document.createElement('span')
+      fill.style.width = Math.min(100, Math.round(100 * (d.bytes || 0) / limit)) + '%'
+      bar.append(fill)
+      main.append(bar)
+    }
+    const rename = document.createElement('button')
+    rename.className = 'iconbtn sm'
+    rename.setAttribute('aria-label', 'Rename')
+    rename.innerHTML = icon('PencilSimple')
+    rename.onclick = () => openRename(d)
+    const forget = document.createElement('button')
+    forget.className = 'danger'
+    forget.textContent = 'Forget'
+    forget.onclick = async () => {
+      const ok = await askConfirm('Forget this device?', 'The seeder stops accepting it. Spaces no other paired device backs up are deleted from the seeder after 7 days.', 'Forget')
+      if (!ok) return
+      try { await api('POST', 'api/forget', { deviceKey: d.deviceKey }) } catch (err) { if (err !== LOCKED) toast(err.message) }
+      refresh()
+    }
+    const actions = document.createElement('div')
+    actions.className = 'item-actions'
+    actions.append(rename, forget)
+    row.append(ic, main, actions)
+    return row
+  }
+
   function renderDevices (devices) {
-    $('dcount').textContent = devices.length ? '(' + devices.length + ')' : ''
+    const groups = new Map()
+    for (const d of [...devices].sort((a, b) => (a.pairedAt || 0) - (b.pairedAt || 0))) {
+      const app = d.app || OTHER
+      if (!groups.has(app)) groups.set(app, [])
+      groups.get(app).push(d)
+    }
+    const apps = [...groups.keys()].sort((a, b) => (a === OTHER) - (b === OTHER))
+    $('dcount').textContent = apps.length ? '(' + apps.filter((a) => a !== OTHER).length + ')' : ''
+    // With one app, its section starts open.
+    if (knownApps === null && apps.length === 1 && !openApps.size) openApps.add(apps[0])
     const list = $('devices')
     list.textContent = ''
     if (!devices.length) {
-      list.innerHTML = '<div class="empty"><strong>No devices yet.</strong><br>Pair a phone from any PeerLoom app to start.</div>'
+      list.innerHTML = '<div class="empty"><strong>No apps yet.</strong><br>Pair a phone from any PeerLoom app and it shows up here.</div>'
       shown = new Set()
+      knownApps = new Set()
       return
     }
     const next = new Set()
-    let entered = 0
-    for (const d of devices) {
-      const row = document.createElement('div')
-      row.className = 'item'
-      if (!shown.has(d.deviceKey)) { row.classList.add('enter'); row.style.animationDelay = (entered++ * 45) + 'ms' }
-      next.add(d.deviceKey)
+    for (const app of apps) {
+      const ds = groups.get(app)
+      const spaces = ds.reduce((n, d) => n + d.spaces, 0)
+      const bytes = ds.reduce((n, d) => n + (d.bytes || 0), 0)
+      const open = openApps.has(app)
+      const sec = document.createElement('div')
+      sec.className = 'appsec' + (open ? ' open' : '') + (knownApps && !knownApps.has(app) ? ' enter' : '')
+      const head = document.createElement('button')
+      head.className = 'apphead'
+      head.setAttribute('aria-expanded', String(open))
       const ic = document.createElement('div')
-      ic.className = 'item-icon'
-      ic.innerHTML = icon('DeviceMobile')
+      ic.className = 'item-icon app'
+      ic.textContent = app === OTHER ? '?' : app.slice(0, 1).toUpperCase()
       const main = document.createElement('div')
       main.className = 'item-main'
-      const name = document.createElement('div')
-      name.className = 'item-name label' + (d.app ? '' : ' none')
-      name.textContent = d.app || 'Unnamed device'
-      name.title = d.deviceKey
-      const state = document.createElement('div')
-      state.className = 'item-state'
-      const limit = lastStatus && lastStatus.deviceLimitBytes
-      state.textContent = shortKey(d.deviceKey) + ', ' + d.spaces + ' ' + plural(d.spaces, 'space', 'spaces') + ', ' + fmtBytes(d.bytes || 0) + (limit ? ' of ' + fmtBytes(limit) : '') + (d.pairedAt ? ', paired ' + new Date(d.pairedAt).toLocaleDateString() : '')
-      main.append(name, state)
-      if (limit) {
-        const bar = document.createElement('div')
-        bar.className = 'bar' + ((d.bytes || 0) >= limit ? ' full' : '')
-        const fill = document.createElement('span')
-        fill.style.width = Math.min(100, Math.round(100 * (d.bytes || 0) / limit)) + '%'
-        bar.append(fill)
-        main.append(bar)
+      const title = document.createElement('div')
+      title.className = 'item-name label'
+      title.textContent = app === OTHER ? 'Other devices' : app
+      const sub = document.createElement('div')
+      sub.className = 'item-state'
+      sub.textContent = ds.length + ' ' + plural(ds.length, 'device', 'devices') + ', ' + spaces + ' ' + plural(spaces, 'space', 'spaces') + ', ' + fmtBytes(bytes) + ' stored'
+      main.append(title, sub)
+      const chev = document.createElement('span')
+      chev.className = 'chev'
+      chev.innerHTML = icon('CaretDown')
+      head.append(ic, main, chev)
+      head.onclick = () => {
+        if (openApps.has(app)) openApps.delete(app); else openApps.add(app)
+        saveOpenApps()
+        renderDevices(lastDevices)
       }
-      const rename = document.createElement('button')
-      rename.className = 'iconbtn sm'
-      rename.setAttribute('aria-label', 'Rename')
-      rename.innerHTML = icon('PencilSimple')
-      rename.onclick = () => openRename(d)
-      const forget = document.createElement('button')
-      forget.className = 'danger'
-      forget.textContent = 'Forget'
-      forget.onclick = async () => {
-        const ok = await askConfirm('Forget this device?', 'The seeder stops accepting it. Spaces no other paired device backs up are deleted from the seeder after 7 days.', 'Forget')
-        if (!ok) return
-        try { await api('POST', 'api/forget', { deviceKey: d.deviceKey }) } catch (err) { if (err !== LOCKED) toast(err.message) }
-        refresh()
+      sec.append(head)
+      if (open) {
+        const body = document.createElement('div')
+        body.className = 'appbody'
+        if (app === OTHER) {
+          const note = document.createElement('p')
+          note.className = 'hint left'
+          note.textContent = 'These devices paired without saying which app they are. Apps for private data, such as health trackers, do this on purpose.'
+          body.append(note)
+        }
+        for (const d of ds) {
+          body.append(deviceRow(d, !shown.has(d.deviceKey)))
+          next.add(d.deviceKey)
+        }
+        sec.append(body)
+      } else {
+        for (const d of ds) if (shown.has(d.deviceKey)) next.add(d.deviceKey)
       }
-      const actions = document.createElement('div')
-      actions.className = 'item-actions'
-      actions.append(rename, forget)
-      row.append(ic, main, actions)
-      list.append(row)
+      list.append(sec)
     }
+    knownApps = new Set(apps)
     shown = next
   }
 
@@ -531,11 +617,11 @@
     if (lastStatus && await copy(lastStatus.seederKey)) flashIcon($('copy-key2'))
   }
 
-  // Rename a device's label.
+  // Name a device.
   let renaming = null
   function openRename (d) {
     renaming = d.deviceKey
-    $('name-input').value = d.app || ''
+    $('name-input').value = d.name || ''
     $('nameov').hidden = false
     $('name-input').focus()
   }
@@ -545,7 +631,7 @@
     e.preventDefault()
     const deviceKey = renaming
     closeRename()
-    try { await api('POST', 'api/label', { deviceKey, app: $('name-input').value }) } catch (err) { if (err !== LOCKED) toast(err.message) }
+    try { await api('POST', 'api/rename', { deviceKey, name: $('name-input').value }) } catch (err) { if (err !== LOCKED) toast(err.message) }
     refresh()
   }
 
