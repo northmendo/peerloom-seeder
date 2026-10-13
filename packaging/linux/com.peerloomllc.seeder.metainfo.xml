@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- So GNOME Software and KDE Discover list the .deb and offer Remove. -->
+<component type="desktop-application">
+  <id>com.peerloomllc.seeder</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <pkgname>peerloom-seeder</pkgname>
+  <name>PeerLoom Seeder</name>
+  <summary>Keeps your PeerLoom apps in sync while your phones sleep</summary>
+  <description>
+    <p>
+      PeerLoom Seeder keeps a copy of your PeerLoom apps' shared lists, files
+      and spaces on a computer that stays on, so a phone that wakes up catches
+      up even when nobody else is online. It stores that data scrambled and
+      cannot read it.
+    </p>
+  </description>
+  <launchable type="desktop-id">peerloom-seeder.desktop</launchable>
+  <provides>
+    <binary>peerloom-seeder</binary>
+  </provides>
+  <categories>
+    <category>Network</category>
+    <category>Utility</category>
+  </categories>
+  <url type="homepage">https://peerloomllc.com</url>
+  <developer id="com.peerloomllc">
+    <name>PeerLoom LLC</name>
+  </developer>
+  <content_rating type="oars-1.1"/>
+</component>

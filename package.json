@@ -17,7 +17,8 @@
     "build": "node scripts/build-bare.js",
     "dashboard": "node scripts/build-bare.js && node host/server.js",
     "dist:linux": "node scripts/dist-linux.js",
-    "image": "scripts/build-umbrel-image.sh"
+    "image": "scripts/build-umbrel-image.sh",
+    "dist:installers": "node scripts/dist-installers.js"
   },
   "license": "MIT",
   "comment:peer-deps": "Dependencies are peers, as in @peerloom/core and @peerloom/host, so an app bundles one copy of each (and its hypercore patches reach the seeder too). blind-peer is pinned exactly: src/seeder.js wraps its internal methods.",

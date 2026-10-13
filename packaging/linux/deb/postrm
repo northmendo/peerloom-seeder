@@ -1,0 +1,26 @@
+#!/bin/bash
+# Debian postrm: removes the user unit and the updater's polkit rule. The
+# seeder's data (~/.local/share/peerloom-seeder: its key, paired devices and
+# stored spaces) stays on remove, so a reinstall is the same seeder; purge
+# deletes it.
+set -e
+INSTALL_ROOT=/opt/peerloom-seeder
+case "$1" in
+  remove|purge|abort-install)
+    TARGET_USER="${SUDO_USER:-}"
+    if { [ -z "$TARGET_USER" ] || [ "$TARGET_USER" = root ]; } && [ -n "${PKEXEC_UID:-}" ]; then TARGET_USER=$(id -un "$PKEXEC_UID" 2>/dev/null || true); fi
+    if { [ -z "$TARGET_USER" ] || [ "$TARGET_USER" = root ]; } && [ -r "$INSTALL_ROOT/.install-user" ]; then TARGET_USER=$(cat "$INSTALL_ROOT/.install-user"); fi
+    if [ -n "$TARGET_USER" ] && [ "$TARGET_USER" != root ]; then
+      TARGET_HOME=$(getent passwd "$TARGET_USER" | cut -d: -f6)
+      if [ -n "$TARGET_HOME" ]; then
+        rm -f "$TARGET_HOME/.config/systemd/user/peerloom-seeder.service"
+        [ "$1" = purge ] && rm -rf "$TARGET_HOME/.local/share/peerloom-seeder"
+      fi
+    fi
+    rm -f /etc/polkit-1/rules.d/49-peerloom-seeder-updater.rules
+    rm -f "$INSTALL_ROOT/.install-user"
+    rmdir "$INSTALL_ROOT" 2>/dev/null || true
+    command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database -q /usr/share/applications 2>/dev/null || true
+    ;;
+esac
+exit 0

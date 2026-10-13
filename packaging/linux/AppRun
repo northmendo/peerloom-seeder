@@ -1,0 +1,10 @@
+#!/bin/sh
+# AppRun for the PeerLoom Seeder AppImage. Started from a terminal with no
+# arguments it runs the seeder in the foreground; started from the desktop
+# (no terminal) it sets up the background service the first time and opens
+# the dashboard. Arguments go to the launcher (open, install-service,
+# remove-service, update). The service runs this AppImage file, so leave it
+# where it is, or run install-service again after moving it.
+APPDIR="${APPDIR:-$(dirname "$(readlink -f "$0")")}"
+if [ $# -eq 0 ] && [ ! -t 1 ]; then set -- open; fi
+exec "$APPDIR/usr/lib/peerloom-seeder/peerloom-seeder" "$@"

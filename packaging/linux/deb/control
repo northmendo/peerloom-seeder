@@ -1,0 +1,17 @@
+Package: peerloom-seeder
+Version: __VERSION__
+Architecture: __ARCH__
+Maintainer: PeerLoom LLC <noreply@peerloomllc.com>
+Section: net
+Priority: optional
+Depends: systemd, libc6
+Recommends: curl, polkitd | policykit-1
+Suggests: xdg-utils
+Installed-Size: __SIZE__
+Homepage: https://peerloomllc.com
+Description: Keeps your PeerLoom apps in sync while your phones sleep
+ PeerLoom Seeder keeps a copy of your PeerLoom apps' shared lists, files and
+ spaces on a computer that stays on, so a phone that wakes up catches up even
+ when nobody else is online. It stores that data scrambled and cannot read it.
+ Runs as a systemd user service with a dashboard at http://127.0.0.1:8761 for
+ pairing phones.
