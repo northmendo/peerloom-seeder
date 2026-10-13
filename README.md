@@ -102,6 +102,28 @@ a PearOffice seeder set up (`pearoffice-state/`) opens as is: same seeder
 key, devices and files, and no limit added.
 
 `npm run dashboard` builds and runs it with data in `~/.peerloom-seeder`.
+
+### Packages
+
+`scripts/stage.js <platform-arch> <dir> [--node]` lays out what every
+package carries: `bare` and `seeder/` (the bundle and its addons, plus
+libatomic on Linux), `host/server.js` (the host as one esbuild file, with
+the page and icon), optionally a pinned Node, the licences and
+`THIRD-PARTY-NOTICES.txt`.
+
+- **Linux download:** `npm run dist:linux` builds
+  `dist/pkg/peerloom-seeder-<version>-linux-{x64,arm64}.tar.gz` with a
+  `.sha256` each, from `packaging/linux/` (launcher with `install-service`,
+  `remove-service` and `update`, a systemd user unit, README), then unpacks
+  the x64 one and checks it starts, answers and updates against a fake
+  local release (`scripts/serve-local-release.js`).
+- **Umbrel / Docker:** `npm run image` builds
+  `ghcr.io/peerloomllc/peerloom-seeder:<version>` for amd64 and arm64 from
+  `packaging/umbrel/Dockerfile` (`PUSH=1` pushes, `ARCHS=amd64` builds one).
+  It must run with host networking. `packaging/umbrel/` also holds the store
+  entry (`umbrel-app.yml`, `docker-compose.yml`; the release fills in
+  `VERSION` and `DIGEST`). The id `peerloom-seeder` fits both PeerLoom's
+  community store and the official one.
 Branding is in `assets/`: `icon.svg` (exported by `scripts/icons.sh`) and
 `listing.md` (store and website copy).
 

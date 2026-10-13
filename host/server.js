@@ -13,8 +13,10 @@
 //   SEEDER_HOST       address to listen on (default 127.0.0.1)
 //   SEEDER_PORT       port (default 8761)
 //   SEEDER_PASSWORD   dashboard password
-//   SEEDER_BARE       the bare binary (default dist/<platform>-<arch>/bare)
-//   SEEDER_BUNDLE     the seeder bundle (default next to it)
+//   SEEDER_BARE       the bare binary (default: next to host/ in a package,
+//                     else dist/<platform>-<arch>/bare)
+//   SEEDER_BUNDLE     the seeder bundle (default: seeder/ in a package, else
+//                     next to bare)
 //   SEEDER_BOOTSTRAP  host:port[,host:port], a test DHT
 
 const fs = require('node:fs')
@@ -149,8 +151,12 @@ async function createHost ({
 
 async function main () {
   const env = process.env
-  const dist = path.join(root, 'dist', process.platform + '-' + process.arch)
-  const barePath = env.SEEDER_BARE || path.join(dist, process.platform === 'win32' ? 'bare.exe' : 'bare')
+  const exe = process.platform === 'win32' ? 'bare.exe' : 'bare'
+  // A package (scripts/stage.js) has bare and seeder/ next to host/; a
+  // checkout has them in dist/<platform>-<arch>/.
+  const packaged = fs.existsSync(path.join(__dirname, '..', exe)) && fs.existsSync(path.join(__dirname, '..', 'seeder', 'seeder.bundle'))
+  const barePath = env.SEEDER_BARE || (packaged ? path.join(__dirname, '..', exe) : path.join(root, 'dist', process.platform + '-' + process.arch, exe))
+  const bundlePath = env.SEEDER_BUNDLE || (packaged ? path.join(__dirname, '..', 'seeder', 'seeder.bundle') : path.join(path.dirname(barePath), 'seeder.bundle'))
   const log = (line) => console.log('[peerloom-seeder] ' + line)
   const h = await createHost({
     dataDir: env.SEEDER_DATA || path.join(os.homedir(), '.peerloom-seeder'),
@@ -158,13 +164,15 @@ async function main () {
     port: Number(env.SEEDER_PORT || 8761),
     password: env.SEEDER_PASSWORD || null,
     barePath,
-    bundlePath: env.SEEDER_BUNDLE || path.join(path.dirname(barePath), 'seeder.bundle'),
+    bundlePath,
     bootstrap: env.SEEDER_BOOTSTRAP ? env.SEEDER_BOOTSTRAP.split(',').map((hp) => { const [host, port] = hp.split(':'); return { host, port: Number(port) } }) : null,
     log
   })
   // A service manager or Docker restarts the host if the seeder dies.
   h.seeder.on('exit', (code) => { log('seeder exited (' + code + ')'); process.exit(1) })
-  const stop = async () => { log('stopping'); await h.close(); process.exit(0) }
+  // Once, however many signals arrive.
+  let stopping = null
+  const stop = () => stopping || (stopping = (async () => { log('stopping'); await h.close(); process.exit(0) })())
   process.on('SIGTERM', stop)
   process.on('SIGINT', stop)
 }

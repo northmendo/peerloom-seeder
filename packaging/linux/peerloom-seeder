@@ -1,0 +1,141 @@
+#!/bin/sh
+# PeerLoom Seeder launcher for the Linux download (from PearOffice's seeder
+# launcher).
+#
+#   peerloom-seeder                    run it; the dashboard is on
+#                                      http://127.0.0.1:8761
+#   peerloom-seeder install-service    run it in the background from now on,
+#                                      also after a reboot (systemd user service)
+#   peerloom-seeder remove-service     stop that
+#   peerloom-seeder update             install the newest release over this one
+#
+# Data goes to $SEEDER_DATA, or ~/.local/share/peerloom-seeder. The other
+# SEEDER_* settings are listed in host/server.js. While it runs it checks for
+# a newer release a minute after start and then daily, and says so in its
+# output. SEEDER_NO_UPDATE_CHECK=1 turns that off.
+# Keys and data are for this user only.
+umask 077
+here="$(cd "$(dirname "$0")" && pwd)"
+current="$(cat "$here/VERSION" 2>/dev/null || echo 0.0.0)"
+latest_url="${SEEDER_UPDATE_LATEST_URL:-https://api.github.com/repos/peerloomllc/peerloom-seeder/releases/latest}"
+unit="$HOME/.config/systemd/user/peerloom-seeder.service"
+
+say () { echo "[peerloom-seeder] $*"; }
+
+# The latest release's JSON, or nothing.
+release_json () {
+  curl -fsSL --max-time 30 -H 'Accept: application/vnd.github+json' -A "peerloom-seeder/$current" "$latest_url" 2>/dev/null
+}
+
+# "1.2.3" from the release's tag, or nothing.
+latest_version () {
+  printf '%s' "$1" | tr ',' '\n' | sed -n 's/.*"tag_name": *"v\{0,1\}\([0-9][0-9.]*\)[^"]*".*/\1/p' | head -n 1
+}
+
+# True when $1 is a newer version than $2.
+newer () {
+  [ -n "$1" ] && [ "$1" != "$2" ] && [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | tail -n 1)" = "$1" ]
+}
+
+# The download URL of the asset named $2 in release JSON $1.
+asset_url () {
+  printf '%s' "$1" | tr ',' '\n' | sed -n "s#.*\"browser_download_url\": *\"\\([^\"]*/$2\\)\".*#\\1#p" | head -n 1
+}
+
+update_check_off () {
+  [ -n "$SEEDER_NO_UPDATE_CHECK" ] || [ -f /.dockerenv ] || ! command -v curl >/dev/null 2>&1
+}
+
+check () {
+  json="$(release_json)" || return 0
+  latest="$(latest_version "$json")"
+  if newer "$latest" "$current"; then
+    say "PeerLoom Seeder $latest is out (this is $current). To install it, run: $here/peerloom-seeder update"
+  fi
+}
+
+FILES="bare seeder host node VERSION peerloom-seeder peerloom-seeder.service README.md LICENSE.txt THIRD-PARTY-NOTICES.txt licenses"
+
+update () {
+  command -v curl >/dev/null 2>&1 || { say "update needs curl"; exit 1; }
+  json="$(release_json)" || { say "could not reach the release list; try again later"; exit 1; }
+  latest="$(latest_version "$json")"
+  if ! newer "$latest" "$current"; then say "already up to date ($current)"; exit 0; fi
+  case "$(uname -m)" in
+    x86_64|amd64) arch=x64 ;;
+    aarch64|arm64) arch=arm64 ;;
+    *) say "no build for $(uname -m)"; exit 1 ;;
+  esac
+  name="peerloom-seeder-$latest-linux-$arch"
+  url="$(asset_url "$json" "$name.tar.gz")"
+  sha_url="$(asset_url "$json" "$name.tar.gz.sha256")"
+  if [ -z "$url" ] || [ -z "$sha_url" ]; then say "release $latest has no $name.tar.gz with a .sha256; nothing changed"; exit 1; fi
+  tmp="$(mktemp -d)" || exit 1
+  trap 'rm -rf "$tmp"' EXIT
+  say "downloading $latest"
+  curl -fsSL --max-time 600 -o "$tmp/$name.tar.gz" "$url" && curl -fsSL --max-time 60 -o "$tmp/sum" "$sha_url" || { say "download failed; nothing changed"; exit 1; }
+  # Nothing is installed unless the download matches the published checksum.
+  want="$(grep -oE '[0-9a-fA-F]{64}' "$tmp/sum" | head -n 1 | tr 'A-F' 'a-f')"
+  got="$(sha256sum "$tmp/$name.tar.gz" | cut -d' ' -f1)"
+  if [ -z "$want" ] || [ "$want" != "$got" ]; then say "checksum does not match; nothing changed"; exit 1; fi
+  tar xzf "$tmp/$name.tar.gz" -C "$tmp" || { say "could not unpack; nothing changed"; exit 1; }
+  new="$tmp/$name"
+  [ -x "$new/bare" ] && [ -x "$new/node" ] && [ -f "$new/seeder/seeder.bundle" ] && [ -f "$new/host/server.js" ] || { say "the download is missing files; nothing changed"; exit 1; }
+  # Move each piece in whole. A running seeder keeps the old files open, and
+  # mv never rewrites this script in place while it is being read.
+  for f in $FILES; do
+    [ -e "$new/$f" ] || continue
+    rm -rf "$here/$f.old"
+    [ -e "$here/$f" ] && mv "$here/$f" "$here/$f.old"
+    mv "$new/$f" "$here/$f"
+  done
+  for f in $FILES; do rm -rf "$here/$f.old"; done
+  say "installed $latest"
+  if command -v systemctl >/dev/null 2>&1 && systemctl --user is-active --quiet peerloom-seeder 2>/dev/null; then
+    systemctl --user restart peerloom-seeder && say "restarted the peerloom-seeder service"
+  else
+    say "restart the seeder to use the new version"
+  fi
+}
+
+install_service () {
+  command -v systemctl >/dev/null 2>&1 || { say "this needs systemd; run $here/peerloom-seeder from your own start-up instead"; exit 1; }
+  mkdir -p "$(dirname "$unit")"
+  sed "s#^ExecStart=.*#ExecStart=$here/peerloom-seeder#" "$here/peerloom-seeder.service" > "$unit"
+  systemctl --user daemon-reload && systemctl --user enable --now peerloom-seeder || { say "could not start the service"; exit 1; }
+  # Keeps it running when you are logged out and starts it at boot.
+  loginctl enable-linger "$(id -un)" 2>/dev/null || say "could not turn on lingering; it will run only while you are logged in (ask an admin to run: loginctl enable-linger $(id -un))"
+  say "running in the background; open http://127.0.0.1:${SEEDER_PORT:-8761} to pair a device"
+}
+
+remove_service () {
+  command -v systemctl >/dev/null 2>&1 || exit 0
+  systemctl --user disable --now peerloom-seeder 2>/dev/null
+  rm -f "$unit"
+  systemctl --user daemon-reload
+  say "service removed; your data is still in ${SEEDER_DATA:-$HOME/.local/share/peerloom-seeder}"
+}
+
+case "$1" in
+  update) update; exit $? ;;
+  install-service) install_service; exit $? ;;
+  remove-service) remove_service; exit $? ;;
+  "") ;;
+  *) echo "usage: peerloom-seeder [install-service | remove-service | update]"; exit 2 ;;
+esac
+
+export SEEDER_DATA="${SEEDER_DATA:-${XDG_DATA_HOME:-$HOME/.local/share}/peerloom-seeder}"
+mkdir -p "$SEEDER_DATA"
+# Checks in the background while the seeder (this process, after exec) runs,
+# and stops when it stops.
+watch () {
+  waited=0
+  next="${SEEDER_UPDATE_DELAY:-60}"
+  while kill -0 "$1" 2>/dev/null; do
+    if [ "$waited" -ge "$next" ]; then check; next=$((waited + 86400)); fi
+    sleep 5
+    waited=$((waited + 5))
+  done
+}
+if ! update_check_off; then watch $$ & fi
+exec "$here/node" "$here/host/server.js"

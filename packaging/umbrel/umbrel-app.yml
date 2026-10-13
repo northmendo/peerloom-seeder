@@ -1,0 +1,45 @@
+manifestVersion: 1
+id: peerloom-seeder
+name: PeerLoom Seeder
+icon: https://peerloomllc.com/assets/icon-peerloom-seeder.svg
+tagline: Keeps your PeerLoom apps in sync while your phones sleep
+category: networking
+version: "VERSION"
+port: 8761
+description: >-
+  Your PeerLoom apps sync phone to phone. When everyone's phones are asleep or
+  out of signal, nothing moves until two of them are online together. PeerLoom
+  Seeder fixes that: pair your phones with it once, and your Umbrel keeps a
+  copy of your shared lists, files and spaces for them. A phone that wakes up
+  catches up from the seeder, even if the person who made the change is
+  offline.
+
+
+  One seeder serves every PeerLoom app, such as PearList and PearOffice. You
+  decide who pairs with it, and how much each device may store (25 GB to
+  start).
+
+
+  It stores your data scrambled and cannot read it: it never gets the keys to
+  your spaces. A new phone or member still needs someone already in the space
+  to be online once to let them in.
+
+
+  To pair a phone: open the seeder, enter the password shown next to the app,
+  choose Pair a device, then scan the code in your PeerLoom app's seeder
+  settings.
+developer: PeerLoom
+website: https://peerloomllc.com
+dependencies: []
+repo: https://github.com/peerloomllc/peerloom-seeder
+support: https://github.com/peerloomllc/peerloom-seeder/issues
+gallery: []
+releaseNotes: >-
+  First release.
+path: ""
+defaultUsername: ""
+# umbrelOS shows the derived app password next to the app when this is set.
+# The compose passes it as SEEDER_PASSWORD.
+deterministicPassword: true
+submitter: PeerLoom
+submission: https://github.com/peerloomllc/peerloom-seeder
