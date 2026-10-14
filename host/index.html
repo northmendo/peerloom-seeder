@@ -117,6 +117,8 @@
   .apphead { display: flex; align-items: center; gap: 12px; width: 100%; padding: 11px 12px; border: 0; border-radius: 10px; background: transparent; color: var(--text); text-align: left; cursor: pointer; }
   .apphead:hover { background: var(--surface-hover); }
   .item-icon.app { font-weight: 700; font-size: 15px; }
+  .item-icon.img { display: block; background: none; overflow: hidden; }
+  .item-icon.img img { width: 32px; height: 32px; display: block; }
   .chev { color: var(--subtle); transition: transform var(--dur-fast) var(--ease); }
   .appsec.open .chev { transform: rotate(180deg); }
   .appbody { padding: 0 6px 8px 22px; }
@@ -608,7 +610,19 @@
       head.setAttribute('aria-expanded', String(open))
       const ic = document.createElement('div')
       ic.className = 'item-icon app'
-      ic.textContent = app === OTHER ? '?' : app.slice(0, 1).toUpperCase()
+      const letter = app === OTHER ? '?' : app.slice(0, 1).toUpperCase()
+      // The app's own icon when the seeder has it; the letter otherwise.
+      const slug = app === OTHER ? '' : app.toLowerCase().replace(/[^a-z]/g, '')
+      if (slug) {
+        const img = new Image()
+        img.alt = ''
+        img.onerror = () => { ic.classList.remove('img'); ic.textContent = letter }
+        img.src = 'app-icons/' + slug + '.png'
+        ic.classList.add('img')
+        ic.append(img)
+      } else {
+        ic.textContent = letter
+      }
       const main = document.createElement('div')
       main.className = 'item-main'
       const title = document.createElement('div')
