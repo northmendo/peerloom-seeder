@@ -5,6 +5,10 @@ data of the spaces its paired devices register, and serves it to the other
 members, so a space still syncs when everyone else is offline. It never gets a
 space's encryption key and does not know which app a space belongs to.
 
+**To install PeerLoom Seeder**, get it for Mac, Windows or Linux from
+[Releases](https://github.com/peerloomllc/peerloom-seeder/releases/latest), or
+on Umbrel and StartOS. Setup steps: <https://peerloomllc.com/seeder/support>.
+
 Built on Holepunch's [`blind-peer`](https://github.com/holepunchto/blind-peer).
 First built as PearOffice's seeder. The plan is in the suite root,
 `proposals/2026-10-12-generic-seeder.md`.
@@ -155,7 +159,7 @@ the page and icon), optionally a pinned Node, the licences and
   `%ProgramData%\PeerLoom Seeder`), allows the seeder through the firewall
   and adds a Start menu link to the dashboard. Running a newer installer over
   it, also with `/S`, keeps the data.
-- **Updates (macOS, Windows):** the dashboard checks the releases repo
+- **Updates (macOS, Windows):** the dashboard checks this repo's releases
   hourly (`host/updates.js`, through @peerloom/host's `update-check` and
   `update-apply`, vendored) and shows "PeerLoom Seeder X is out" with
   **Update now**. It downloads this machine's installer and checks it against
@@ -187,8 +191,8 @@ the page and icon), optionally a pinned Node, the licences and
 `../RELEASE-PIPELINE.md`, modelled on PearOffice's): version bump
 (`scripts/release/bump.js`: package.json, the StartOS image tag and version
 graph), `npm test`, release notes, every package above, then the tag on this
-repo, the GitHub release with `.sha256` files on the public
-`peerloomllc/peerloom-seeder` (`RELEASES_REPO` in `scripts/app.conf`), the
+repo, the GitHub release with `.sha256` files (`RELEASES_REPO` in
+`scripts/app.conf`), the
 image on ghcr, a PeerLoom community store PR (the first release adds the
 app), the official Umbrel store bump once listed, the StartOS registry PR on
 the website and a Nostr note (needs `SIGN_WITH` in `scripts/.env`). Each

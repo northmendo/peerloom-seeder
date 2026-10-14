@@ -4,14 +4,14 @@
 #
 # The non-phone profile of /home/tim/peerloomllc/RELEASE-PIPELINE.md: same
 # step numbers and gate wording, and the phone steps (2, 3, 4, 4e, 8-11) are
-# absent. Modelled on PearOffice's scripts/release.sh, which also tags its
-# private source repo and publishes on a public releases repo.
+# absent. Modelled on PearOffice's scripts/release.sh. Code, tag and release
+# all live in the one public repo (RELEASES_REPO).
 #
 # One run builds every package: Linux tarballs, .deb and AppImage (x64 and
 # arm64), macOS .pkg (Apple silicon and Intel, signed and notarized on the
 # Mac Mini), the Windows installer, the Umbrel image (amd64 and arm64) and
-# the StartOS .s9pk. The downloads go on the public RELEASES_REPO, where the
-# installed seeders look for updates; the tag goes on this repo.
+# the StartOS .s9pk. The downloads go on this repo's releases, where the
+# installed seeders look for updates.
 #
 # Flags:
 #   vX.Y.Z             Override the auto-detected version (default: next patch)
@@ -402,7 +402,7 @@ echo "==> Tagging and pushing $RELEASE_TAG..."
 git tag "$RELEASE_TAG" 2>/dev/null || echo "    Tag already exists locally"
 git push "$GIT_REMOTE" "$RELEASE_TAG" || echo "    Tag already on remote"
 
-# Step 7: the GitHub release on the public releases repo.
+# Step 7: the GitHub release.
 if $PUBLISH_GITHUB && [ ${#ARTIFACTS[@]} -gt 0 ]; then
   RELEASE_ASSETS=()
   for _a in "${ARTIFACTS[@]}"; do RELEASE_ASSETS+=("$_a"); [ -f "${_a}.sha256" ] && RELEASE_ASSETS+=("${_a}.sha256"); done
