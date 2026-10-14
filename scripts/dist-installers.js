@@ -155,10 +155,14 @@ async function smokeAppImage (appImage) {
   const port = 19761 + Math.floor(Math.random() * 1000)
   try {
     await new Promise((resolve) => {
-      const proc = spawn(app, ['run'], { env: { ...env, SEEDER_PORT: String(port) }, stdio: ['ignore', 'pipe', 'inherit'] })
+      // Its own process group: the AppImage runtime starts the seeder as a
+      // child, and killing only the runtime left that seeder running and this
+      // script waiting on its output forever.
+      const proc = spawn(app, ['run'], { env: { ...env, SEEDER_PORT: String(port) }, stdio: ['ignore', 'pipe', 'inherit'], detached: true })
+      const stop = () => { try { process.kill(-proc.pid, 'SIGTERM') } catch {} }
       let out = ''
       let done = false
-      const timer = setTimeout(() => { proc.kill(); fail('AppImage did not start:\n' + out) }, 60000)
+      const timer = setTimeout(() => { stop(); fail('AppImage did not start:\n' + out) }, 60000)
       proc.stdout.on('data', async (d) => {
         out += d
         if (done || !out.includes('dashboard on')) return
@@ -166,7 +170,7 @@ async function smokeAppImage (appImage) {
         const s = await (await fetch('http://127.0.0.1:' + port + '/api/status')).json()
         if (s.version !== version) fail('AppImage status: ' + JSON.stringify(s))
         clearTimeout(timer)
-        proc.kill()
+        stop()
         resolve()
       })
     })
@@ -217,4 +221,4 @@ async function main () {
   }
 }
 
-main().catch((err) => fail(err.stack || err.message))
+main().then(() => process.exit(0), (err) => fail(err.stack || err.message))

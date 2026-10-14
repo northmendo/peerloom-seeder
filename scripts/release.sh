@@ -89,9 +89,13 @@ _kill_tree() {
   for _c in $(pgrep -P "$1" 2>/dev/null); do _kill_tree "$_c"; done
   kill "$1" 2>/dev/null || true
 }
+_PIDS=()
 _on_exit() {
   _worktree_cleanup
-  if [ -n "${_MAC_PID:-}" ] && kill -0 "$_MAC_PID" 2>/dev/null; then _kill_tree "$_MAC_PID"; fi
+  local _p
+  for _p in "${_PIDS[@]:-}"; do
+    if [ -n "$_p" ] && kill -0 "$_p" 2>/dev/null; then _kill_tree "$_p"; fi
+  done
   return 0
 }
 trap _on_exit EXIT
@@ -223,7 +227,6 @@ if $PUBLISH_NOSTR && ! _ask "Nostr announcement?" y; then PUBLISH_NOSTR=false; f
 
 PUBLISH_FAILED=false
 ARTIFACTS=()
-_MAC_PID=""
 START9_S9PK=""
 UMBREL_BUILT=false
 
@@ -295,64 +298,80 @@ echo "---"
 _confirm "Release notes look good?"
 node scripts/release/bump.js --notes release_notes.md
 
-# Steps 5b-5d: the slow builds, best effort, after the notes.
-_build() { # _build <label> <log> <command...>
-  local _label="$1" _log="$2"; shift 2
-  echo "--> $_label"
-  if "$@" > "$_log" 2>&1 < /dev/null; then echo "    $_label OK."; return 0; fi
-  echo "    WARNING: $_label failed, skipping it. Log: $_log"
-  return 1
-}
+# Steps 5b-5d: the slow builds, best effort, after the notes. They run in
+# parallel: each stages into its own folder under dist/, and what they would
+# otherwise fetch into shared places (the Bare runtimes, Node, libatomic) is
+# fetched first. The Mac build runs on the Mac Mini; StartOS waits for the
+# Umbrel image it packages. Each job logs to /tmp and leaves a .ok when done.
 _P="$REPO_ROOT/dist/pkg"
 _V="$APP_VERSION"
+_JOBS="$(mktemp -d)"
+_job() { # _job <name> <label> <command...>: start it in the background
+  local _name="$1" _label="$2"; shift 2
+  echo "--> $_label  (log: /tmp/peerloom-seeder-build-$_name.log)"
+  ( "$@" > "/tmp/peerloom-seeder-build-$_name.log" 2>&1 < /dev/null && touch "$_JOBS/$_name.ok" ) &
+  _PIDS+=("$!")
+}
+_ok() { [ -e "$_JOBS/$1.ok" ]; }
 
-# 5b: desktop. The Mac build runs on the Mac Mini in the background.
-if $SKIP_MACOS; then
-  echo "--> macOS    (skipped)"
-else
-  _MAC_DONE="$(mktemp -d)"
-  ( _build "macOS .pkg, Apple silicon and Intel (signed, notarized)" /tmp/peerloom-seeder-build-macos.log node scripts/dist-macos.js \
-      && touch "$_MAC_DONE/ok" ) > "$_MAC_DONE/report" 2>&1 < /dev/null &
-  _MAC_PID=$!
-  echo "--> macOS    (on the Mac Mini, in the background)"
+_targets=()
+$SKIP_LINUX || _targets+=(linux-x64 linux-arm64)
+$SKIP_MACOS || _targets+=(darwin-arm64 darwin-x64)
+$SKIP_WINDOWS || _targets+=(win32-x64)
+if ! $SKIP_UMBREL || ! $SKIP_START9; then _targets+=(linux-x64 linux-arm64); fi
+if [ ${#_targets[@]} -gt 0 ]; then
+  echo "==> Fetching runtimes and Node for ${_targets[*]}..."
+  node scripts/stage.js --prefetch $(printf '%s\n' "${_targets[@]}" | sort -u)
 fi
-if $SKIP_WINDOWS; then
-  echo "--> Windows  (skipped)"
-else
-  _build "Windows installer" /tmp/peerloom-seeder-build-windows.log node scripts/dist-windows.js \
-    && ARTIFACTS+=("$_P/PeerLoomSeeder-Setup-$_V.exe")
+
+echo "==> Building in parallel..."
+$SKIP_MACOS || _job macos "macOS .pkg, Apple silicon and Intel (on the Mac Mini, signed, notarized)" node scripts/dist-macos.js
+$SKIP_WINDOWS || _job windows "Windows installer" node scripts/dist-windows.js
+if ! $SKIP_LINUX; then
+  _job linux "Linux tarballs (x64, arm64) with the update smoke test" node scripts/dist-linux.js
+  _job installers "Linux .deb and AppImage" node scripts/dist-installers.js
 fi
-# 5b2: Linux.
-if $SKIP_LINUX; then
-  echo "--> Linux    (skipped)"
-else
-  _build "Linux tarballs (x64, arm64) with the update smoke test" /tmp/peerloom-seeder-build-linux.log node scripts/dist-linux.js \
-    && ARTIFACTS+=("$_P/peerloom-seeder-$_V-linux-x64.tar.gz" "$_P/peerloom-seeder-$_V-linux-arm64.tar.gz")
-  _build "Linux .deb and AppImage" /tmp/peerloom-seeder-build-installers.log node scripts/dist-installers.js \
-    && ARTIFACTS+=("$_P/peerloom-seeder_${_V}_amd64.deb" "$_P/peerloom-seeder_${_V}_arm64.deb" \
-                   "$_P/PeerLoomSeeder-$_V-x86_64.AppImage" "$_P/PeerLoomSeeder-$_V-aarch64.AppImage")
-fi
-# 5d: store packages (the Umbrel image is pushed after the tag).
 if ! $SKIP_UMBREL || ! $SKIP_START9; then
-  if PUSH=0 _build "Umbrel image (amd64, arm64, not pushed yet)" /tmp/peerloom-seeder-build-umbrel.log scripts/build-umbrel-image.sh "$APP_VERSION"; then
-    UMBREL_BUILT=true
-  fi
+  _store_build() {
+    PUSH=0 scripts/build-umbrel-image.sh "$APP_VERSION" || return 1
+    touch "$_JOBS/umbrel.ok"
+    $SKIP_START9 && return 0
+    echo "== StartOS =="
+    (cd packaging/start9 && npm install --silent --no-audit --no-fund && make && make)
+  }
+  _job stores "Umbrel image (amd64, arm64, not pushed yet), then the StartOS package" _store_build
 fi
-if ! $SKIP_START9 && $UMBREL_BUILT; then
-  if _build "StartOS package" /tmp/peerloom-seeder-build-start9.log bash -c 'cd packaging/start9 && npm install --silent --no-audit --no-fund && make && make'; then
+for _pid in "${_PIDS[@]}"; do wait "$_pid" || true; done
+_PIDS=()
+
+_report_job() { # _report_job <name> <label>
+  if _ok "$1"; then echo "    $2 OK."; else echo "    WARNING: $2 failed, skipping it. Log: /tmp/peerloom-seeder-build-$1.log"; fi
+}
+if ! $SKIP_MACOS; then
+  _report_job macos "macOS"
+  _ok macos && ARTIFACTS+=("$_P/PeerLoomSeeder-$_V-arm64.pkg" "$_P/PeerLoomSeeder-$_V-x64.pkg")
+fi
+if ! $SKIP_WINDOWS; then
+  _report_job windows "Windows"
+  _ok windows && ARTIFACTS+=("$_P/PeerLoomSeeder-Setup-$_V.exe")
+fi
+if ! $SKIP_LINUX; then
+  _report_job linux "Linux tarballs"
+  _ok linux && ARTIFACTS+=("$_P/peerloom-seeder-$_V-linux-x64.tar.gz" "$_P/peerloom-seeder-$_V-linux-arm64.tar.gz")
+  _report_job installers "Linux .deb and AppImage"
+  _ok installers && ARTIFACTS+=("$_P/peerloom-seeder_${_V}_amd64.deb" "$_P/peerloom-seeder_${_V}_arm64.deb" \
+                                "$_P/PeerLoomSeeder-$_V-x86_64.AppImage" "$_P/PeerLoomSeeder-$_V-aarch64.AppImage")
+fi
+if ! $SKIP_UMBREL || ! $SKIP_START9; then
+  if [ -e "$_JOBS/umbrel.ok" ]; then UMBREL_BUILT=true; echo "    Umbrel image OK."
+  else echo "    WARNING: Umbrel image failed, skipping the stores. Log: /tmp/peerloom-seeder-build-stores.log"; fi
+  if ! $SKIP_START9 && $UMBREL_BUILT; then
     _s9="$REPO_ROOT/packaging/start9/${APP_ID}_x86_64.s9pk"
     _got=$(start-cli-1.1.0 s9pk inspect "$_s9" manifest 2>/dev/null \
       | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).version" 2>/dev/null || echo "")
-    if [ "$_got" = "$APP_VERSION:0" ]; then START9_S9PK="$_s9"
-    else echo "    WARNING: the .s9pk says ${_got:-nothing}, expected $APP_VERSION:0; skipping it."; fi
+    if _ok stores && [ "$_got" = "$APP_VERSION:0" ]; then START9_S9PK="$_s9"; echo "    StartOS package OK."
+    else echo "    WARNING: the StartOS package is missing or says ${_got:-nothing} (expected $APP_VERSION:0); skipping it."; fi
   fi
-fi
-if [ -n "$_MAC_PID" ]; then
-  echo "==> Waiting for the Mac build..."
-  wait "$_MAC_PID" || true
-  _MAC_PID=""
-  cat "$_MAC_DONE/report"
-  [ -e "$_MAC_DONE/ok" ] && ARTIFACTS+=("$_P/PeerLoomSeeder-$_V-arm64.pkg" "$_P/PeerLoomSeeder-$_V-x64.pkg")
 fi
 [ -n "$START9_S9PK" ] && ARTIFACTS+=("$START9_S9PK")
 
@@ -410,17 +429,42 @@ if $PUBLISH_GITHUB && [ ${#ARTIFACTS[@]} -gt 0 ]; then
   echo "    Repo   : $RELEASES_REPO"
   echo "    Tag    : $RELEASE_TAG"
   _confirm "Create public GitHub release $RELEASE_TAG and upload ${#RELEASE_ASSETS[@]} assets?"
+  # The release first (notes only), then the files, UPLOAD_JOBS (default 4)
+  # at a time, each tried twice. --clobber replaces a file a failed run left.
   if gh release view "$RELEASE_TAG" -R "$RELEASES_REPO" >/dev/null 2>&1; then
-    echo "    GitHub release $RELEASE_TAG already exists - replacing its notes and assets."
+    echo "    GitHub release $RELEASE_TAG already exists - replacing its notes and files."
     gh release edit "$RELEASE_TAG" -R "$RELEASES_REPO" --notes-file release_notes.md >/dev/null \
-      && gh release upload "$RELEASE_TAG" -R "$RELEASES_REPO" --clobber "${RELEASE_ASSETS[@]}" \
-      || { PUBLISH_FAILED=true; echo "ERROR: updating the GitHub release failed."; }
-  elif gh release create "$RELEASE_TAG" -R "$RELEASES_REPO" --title "$APP_NAME $APP_VERSION" \
-         --notes-file release_notes.md "${RELEASE_ASSETS[@]}"; then
-    echo "==> All ${#RELEASE_ASSETS[@]} assets uploaded."
-  else
+      || { PUBLISH_FAILED=true; echo "ERROR: updating the release notes failed."; }
+  elif ! gh release create "$RELEASE_TAG" -R "$RELEASES_REPO" --title "$APP_NAME $APP_VERSION" --notes-file release_notes.md; then
     PUBLISH_FAILED=true
     echo "ERROR: creating the GitHub release failed. The tag is pushed; re-run with $RELEASE_TAG --retag"
+  fi
+  if gh release view "$RELEASE_TAG" -R "$RELEASES_REPO" >/dev/null 2>&1; then
+    _UP="$(mktemp -d)"
+    _up_pids=()
+    echo "==> Uploading ${#RELEASE_ASSETS[@]} files, up to ${UPLOAD_JOBS:-4} at a time..."
+    for _i in "${!RELEASE_ASSETS[@]}"; do
+      while [ "$(jobs -rp | wc -l)" -ge "${UPLOAD_JOBS:-4}" ]; do sleep 1; done
+      _a="${RELEASE_ASSETS[$_i]}"
+      (
+        for _try in 1 2; do
+          if gh release upload "$RELEASE_TAG" -R "$RELEASES_REPO" --clobber "$_a" > "$_UP/$_i.log" 2>&1 < /dev/null; then
+            touch "$_UP/$_i.ok"; echo "    Uploaded $(basename "$_a")"; exit 0
+          fi
+          sleep 5
+        done
+        echo "    FAILED: $(basename "$_a")"
+      ) &
+      _up_pids+=("$!")
+    done
+    for _p in "${_up_pids[@]}"; do wait "$_p" || true; done
+    for _i in "${!RELEASE_ASSETS[@]}"; do
+      if [ ! -e "$_UP/$_i.ok" ]; then
+        PUBLISH_FAILED=true
+        echo "ERROR: uploading $(basename "${RELEASE_ASSETS[$_i]}") failed:"; cat "$_UP/$_i.log" 2>/dev/null
+      fi
+    done
+    $PUBLISH_FAILED || echo "==> All ${#RELEASE_ASSETS[@]} files uploaded."
   fi
 else
   echo "==> Skipping the GitHub release."

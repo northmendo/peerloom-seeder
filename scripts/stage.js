@@ -12,6 +12,7 @@
 // servers and minimal installs often lack (from PearOffice's dist-seeder.js).
 //
 // Usage: node scripts/stage.js <platform-arch> <dir> [--node]
+//        node scripts/stage.js --prefetch <platform-arch>...
 const crypto = require('crypto')
 const fs = require('fs')
 const os = require('os')
@@ -55,7 +56,7 @@ function addLibatomic (target, dir) {
 
 // Node's official build, checked against its published SHASUMS256.txt.
 // Linux and macOS ship a .tar.xz with bin/node; Windows a .zip with node.exe.
-function addNode (target, dir) {
+function fetchNode (target) {
   const [platform, arch] = target.split('-')
   const win = platform === 'win32'
   const name = 'node-v' + NODE_VERSION + '-' + (win ? 'win' : platform) + '-' + arch
@@ -64,7 +65,11 @@ function addNode (target, dir) {
   const sums = fs.readFileSync(download(base + 'SHASUMS256.txt', path.join(cache, 'node-v' + NODE_VERSION + '-SHASUMS256.txt')), 'utf8')
   const sha = (sums.split('\n').find((l) => l.endsWith('  ' + archive)) || '').split(' ')[0]
   if (!sha) throw new Error('no checksum for ' + archive)
-  const file = download(base + archive, path.join(cache, archive), sha)
+  return { file: download(base + archive, path.join(cache, archive), sha), name, win }
+}
+
+function addNode (target, dir) {
+  const { file, name, win } = fetchNode(target)
   if (win) {
     const x = fs.mkdtempSync(path.join(os.tmpdir(), 'node-win-'))
     execFileSync('unzip', ['-q', file, name + '/node.exe', name + '/LICENSE', '-d', x])
@@ -76,6 +81,23 @@ function addNode (target, dir) {
   execFileSync('tar', ['xJf', file, '-C', dir, '--strip-components=2', name + '/bin/node'])
   execFileSync('tar', ['xJf', file, '-C', dir, '--strip-components=1', name + '/LICENSE'])
   fs.renameSync(path.join(dir, 'LICENSE'), path.join(dir, 'licenses', 'node-LICENSE'))
+}
+
+// Everything staging fetches into shared places (the Bare runtimes into
+// node_modules, Node and libatomic into dist/cache), done once up front so
+// several stage() runs can then go in parallel without racing on them.
+function prefetch (targets) {
+  // One npm install for every runtime: `npm install --no-save` drops packages
+  // package.json does not list, so installing them one by one leaves only the
+  // last (a parallel Umbrel build then found no linux-arm64 runtime).
+  const version = require(path.join(root, 'node_modules', 'bare-runtime', 'package.json')).version
+  const want = [...new Set(targets)].map((t) => 'bare-runtime-' + t + '@' + version)
+  execFileSync('npm', ['install', '--no-save', '--force', ...want], { cwd: root, stdio: 'inherit' })
+  for (const t of targets) {
+    if (!fs.existsSync(runtimeDir(t))) throw new Error('bare-runtime-' + t + ' did not install')
+    fetchNode(t)
+    if (LIBATOMIC[t]) download('https://deb.debian.org/debian/pool/main/g/gcc-12/' + LIBATOMIC[t].deb, path.join(cache, LIBATOMIC[t].deb), LIBATOMIC[t].sha256)
+  }
 }
 
 async function stage (target, dir, { node = false } = {}) {
@@ -123,7 +145,10 @@ async function stage (target, dir, { node = false } = {}) {
   return dir
 }
 
-if (require.main === module) {
+if (require.main === module && process.argv[2] === '--prefetch') {
+  prefetch(process.argv.slice(3))
+  console.log('prefetched ' + process.argv.slice(3).join(', '))
+} else if (require.main === module) {
   const [target, dir] = process.argv.slice(2)
   if (!target || !dir) { console.error('usage: node scripts/stage.js <platform-arch> <dir> [--node]'); process.exit(2) }
   stage(target, path.resolve(dir), { node: process.argv.includes('--node') })
@@ -131,4 +156,4 @@ if (require.main === module) {
     .catch((e) => { console.error(e.message); process.exit(1) })
 }
 
-module.exports = { stage, NODE_VERSION }
+module.exports = { stage, prefetch, NODE_VERSION }
