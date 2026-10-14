@@ -181,6 +181,19 @@ the page and icon), optionally a pinned Node, the licences and
   entry (`umbrel-app.yml`, `docker-compose.yml`; the release fills in
   `VERSION` and `DIGEST`). The id `peerloom-seeder` fits both PeerLoom's
   community store and the official one.
+### Release
+
+`./scripts/release.sh [vX.Y.Z]` (the non-phone profile of
+`../RELEASE-PIPELINE.md`, modelled on PearOffice's): version bump
+(`scripts/release/bump.js`: package.json, the StartOS image tag and version
+graph), `npm test`, release notes, every package above, then the tag on this
+repo, the GitHub release with `.sha256` files on the public
+`peerloomllc/peerloom-seeder` (`RELEASES_REPO` in `scripts/app.conf`), the
+image on ghcr, a PeerLoom community store PR (the first release adds the
+app), the official Umbrel store bump once listed, the StartOS registry PR on
+the website and a Nostr note (needs `SIGN_WITH` in `scripts/.env`). Each
+publish step asks first; `--skip-<target>` leaves one out.
+
 Branding is in `assets/`: `icon.svg` (exported by `scripts/icons.sh`) and
 `listing.md` (store and website copy).
 
