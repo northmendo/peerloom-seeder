@@ -34,6 +34,13 @@ const { createUpdates } = require('./updates')
 const root = path.join(__dirname, '..')
 const page = fs.readFileSync(path.join(__dirname, 'index.html'))
 const icon = fs.readFileSync(path.join(__dirname, 'icon.png'))
+// Each app's icon for its row on the dashboard, by name: app-icons/pearcal.png.
+const appIcons = new Map()
+try {
+  for (const f of fs.readdirSync(path.join(__dirname, 'app-icons'))) {
+    if (/^[a-z]+\.png$/.test(f)) appIcons.set('/app-icons/' + f, fs.readFileSync(path.join(__dirname, 'app-icons', f)))
+  }
+} catch {}
 const BODY_MAX = 4096
 const DISK_CACHE_MS = 60 * 1000
 
@@ -128,6 +135,10 @@ async function createHost ({
     }
     if (req.method === 'GET' && url === '/fonts.css') return send(200, 'text/css', FONT_CSS)
     if (req.method === 'GET' && url === '/icon.png') return send(200, 'image/png', icon)
+    if (req.method === 'GET' && appIcons.has(url)) {
+      res.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'max-age=86400', 'x-content-type-options': 'nosniff' })
+      return res.end(appIcons.get(url))
+    }
     // Answers /api/login and /api/logout, and 401 for anything else without a
     // session. The page itself always loads and shows the login form on a 401.
     if (auth.handle(req, res, parsed)) return

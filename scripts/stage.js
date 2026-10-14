@@ -3,7 +3,7 @@
 //
 //   <dir>/bare, seeder/seeder.bundle   the seeder (Bare) with its addons
 //   <dir>/host/server.js               the host, one esbuild file, with
-//                                      index.html, icon.png and version.json
+//                                      index.html, icon.png, app-icons/ and version.json
 //   <dir>/node (node.exe)              a pinned Node binary (node: true;
 //                                      the Docker image has its own)
 //   <dir>/VERSION, LICENSE.txt, THIRD-PARTY-NOTICES.txt, licenses/
@@ -125,6 +125,7 @@ async function stage (target, dir, { node = false } = {}) {
     logLevel: 'warning'
   })
   for (const f of ['index.html', 'icon.png']) fs.copyFileSync(path.join(root, 'host', f), path.join(hostDir, f))
+  fs.cpSync(path.join(root, 'host', 'app-icons'), path.join(hostDir, 'app-icons'), { recursive: true })
   fs.writeFileSync(path.join(hostDir, 'version.json'), JSON.stringify({ version }) + '\n')
 
   fs.mkdirSync(path.join(dir, 'licenses'), { recursive: true })
