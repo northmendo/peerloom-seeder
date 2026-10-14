@@ -230,7 +230,7 @@
 
   <div class="main">
     <div class="stats">
-      <div class="stat hero"><div class="num" id="s-spaces">-</div><div class="lbl" id="s-spaces-lbl">spaces kept online</div><div class="sub" id="s-peers"></div></div>
+      <div class="stat hero"><div class="num" id="s-spaces">-</div><div class="lbl" id="s-spaces-lbl">shared items kept online</div><div class="sub" id="s-peers"></div></div>
       <div class="stat"><div class="num small" id="s-devices">-</div><div class="lbl" id="s-devices-lbl">paired devices</div></div>
       <div class="stat"><div class="num small" id="s-used">-</div><div class="lbl">stored</div><div class="sub" id="s-free"></div></div>
       <div class="stat"><div class="num small" id="s-up">-</div><div class="lbl">uptime</div></div>
@@ -305,7 +305,7 @@
 <div class="overlay" id="limitov" hidden><form class="modal narrow" id="limit-form">
   <div class="modal-head"><h3>Storage limit</h3></div>
   <div class="stack">
-    <p class="hint">How much each paired device may store here. A device over its limit cannot add new spaces; the ones it has keep syncing.</p>
+    <p class="hint">How much each paired device may store here. A device over its limit cannot add new shared items; the ones it has keep syncing.</p>
     <label class="check"><input type="checkbox" id="limit-off"> No limit</label>
     <div class="field"><input id="limit-gb" type="number" min="1" step="1" aria-label="Gigabytes per device"><span class="hint" style="align-self:center">GB per device</span></div>
     <p class="flash err" id="limit-error" hidden></p>
@@ -461,7 +461,7 @@
     if ($('toast').classList.contains('bad')) toast(null)
     showLogin(false)
     $('s-spaces').textContent = s.spaces
-    $('s-spaces-lbl').textContent = plural(s.spaces, 'space kept online', 'spaces kept online')
+    $('s-spaces-lbl').textContent = plural(s.spaces, 'shared item kept online', 'shared items kept online')
     $('s-peers').textContent = (s.peers || 0) + ' ' + plural(s.peers || 0, 'peer', 'peers') + ' connected'
     $('s-up').textContent = fmtUp(s.uptime)
     $('s-devices').textContent = s.pairedDevices
@@ -527,6 +527,13 @@
   // in the order each app first paired. Apps that keep their data private
   // send no app name; theirs go under "Other devices", last.
   const OTHER = '\u0000other'
+  // What each app calls the things it shares, for its rows; "shared items" for
+  // the totals and for apps not listed here.
+  const ITEM_WORDS = { PearList: ['list', 'lists'], PearCal: ['group', 'groups'], PearCircle: ['circle', 'circles'], PearOffice: ['file', 'files'] }
+  function itemWord (app, n) {
+    const w = ITEM_WORDS[app] || ['shared item', 'shared items']
+    return plural(n, w[0], w[1])
+  }
   function loadOpenApps () { try { return new Set(JSON.parse(localStorage.getItem('open-apps') || '[]')) } catch { return new Set() } }
   let openApps = loadOpenApps()
   function saveOpenApps () { try { localStorage.setItem('open-apps', JSON.stringify([...openApps])) } catch {} }
@@ -547,7 +554,7 @@
     const state = document.createElement('div')
     state.className = 'item-state'
     const limit = lastStatus && lastStatus.deviceLimitBytes
-    state.textContent = d.spaces + ' ' + plural(d.spaces, 'space', 'spaces') + ', ' + fmtBytes(d.bytes || 0) + (limit ? ' of ' + fmtBytes(limit) : '') + (d.pairedAt ? ', paired ' + new Date(d.pairedAt).toLocaleDateString() : '')
+    state.textContent = d.spaces + ' ' + itemWord(d.app, d.spaces) + ', ' + fmtBytes(d.bytes || 0) + (limit ? ' of ' + fmtBytes(limit) : '') + (d.pairedAt ? ', paired ' + new Date(d.pairedAt).toLocaleDateString() : '')
     main.append(name, state)
     if (limit) {
       const bar = document.createElement('div')
@@ -630,7 +637,7 @@
       title.textContent = app === OTHER ? 'Other devices' : app
       const sub = document.createElement('div')
       sub.className = 'item-state'
-      sub.textContent = ds.length + ' ' + plural(ds.length, 'device', 'devices') + ', ' + spaces + ' ' + plural(spaces, 'space', 'spaces') + ', ' + fmtBytes(bytes) + ' stored'
+      sub.textContent = ds.length + ' ' + plural(ds.length, 'device', 'devices') + ', ' + spaces + ' ' + itemWord(app, spaces) + ', ' + fmtBytes(bytes) + ' stored'
       main.append(title, sub)
       const chev = document.createElement('span')
       chev.className = 'chev'
