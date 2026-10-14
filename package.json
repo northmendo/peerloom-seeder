@@ -1,6 +1,6 @@
 {
   "name": "@peerloom/seeder",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "One blind seeder for every PeerLoom app: Holepunch blind-peer plus pairing, admission, storage limits per device, drops and keyrings. Extracted from PearOffice.",
   "main": "index.js",
   "exports": {

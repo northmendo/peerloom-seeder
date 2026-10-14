@@ -1,11 +1,11 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 
 // Matches package.json's version and the image tag in manifest/index.ts; the
-// release sets all three.
+// release sets all three (scripts/release/bump.js).
 export const current = VersionInfo.of({
-  version: '0.1.0:0',
+  version: '1.0.0:0',
   releaseNotes: {
-    en_US: 'First release. Keeps your PeerLoom apps in sync while your phones sleep.',
+    en_US: "PeerLoom Seeder is here: one always-on box that keeps all your PeerLoom apps in sync.",
   },
   migrations: {
     up: async ({ effects }) => {},

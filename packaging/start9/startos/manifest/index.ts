@@ -16,7 +16,7 @@ export const manifest = setupManifest({
   volumes: ['main'],
   images: {
     seeder: {
-      source: { dockerTag: 'ghcr.io/peerloomllc/peerloom-seeder:0.1.0' },
+      source: { dockerTag: 'ghcr.io/peerloomllc/peerloom-seeder:1.0.0' },
       arch: ['x86_64'],
     },
   },
