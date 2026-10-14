@@ -5,6 +5,17 @@ data of the spaces its paired devices register, and serves it to the other
 members, so a space still syncs when everyone else is offline. It never gets a
 space's encryption key and does not know which app a space belongs to.
 
+<table>
+<tr>
+<td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/dashboard-dark.png"><img src="docs/img/dashboard-light.png" alt="The PeerLoom Seeder dashboard: totals for shared items, paired devices, storage and uptime, then each app with its icon (PearCircle, PearCal, PearList, PearOffice) and what its devices store, one app opened to show its phone with Rename and Forget, and the seeder's storage limit and key"></picture></td>
+<td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/pair-dark.png"><img src="docs/img/pair-light.png" alt="The Pair a device window: a QR code to scan from a PeerLoom app's seeder settings, the same link in text with a copy button, and a note that the code works for five minutes"></picture></td>
+</tr>
+<tr>
+<td><em>Every app's devices and what they store.</em></td>
+<td><em>Pairing: scan the code from the app, or paste the link.</em></td>
+</tr>
+</table>
+
 **To install PeerLoom Seeder**, get it for Mac, Windows or Linux from
 [Releases](https://github.com/peerloomllc/peerloom-seeder/releases/latest), or
 on Umbrel and StartOS. Setup steps: <https://peerloomllc.com/seeder/support>.
