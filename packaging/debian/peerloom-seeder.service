@@ -1,0 +1,66 @@
+# PeerLoom Seeder, system service for a headless Debian (12+) box or LXC.
+# docs/DEBIAN-LXC.md is the runbook that installs this. By hand:
+#
+#   apt install -y nodejs git  # (see docs/DEBIAN-LXC.md for NodeSource Node 22)
+#   git clone https://github.com/northmendo/peerloom-seeder /opt/peerloom-seeder
+#   cd /opt/peerloom-seeder && npm install && npm run build
+#   install -m 600 packaging/debian/peerloom-seeder.env /etc/peerloom-seeder.env
+#   cp packaging/debian/peerloom-seeder.service /etc/systemd/system/
+#   systemctl daemon-reload && systemctl enable --now peerloom-seeder
+#
+# The service runs node host/server.js from the checkout, which spawns the
+# Bare seeder it built into dist/. Everything it writes goes to
+# /var/lib/peerloom-seeder (StateDirectory below): nothing else on the
+# machine is writable for it.
+#
+# The dashboard binds 0.0.0.0 (the env file) so other machines on the LAN
+# can reach it. That is only safe because the host refuses a non-loopback
+# bind without a password: one is generated on first start and saved, mode
+# 0600, at /var/lib/peerloom-seeder/dashboard-password.
+[Unit]
+Description=PeerLoom Seeder (blind seeder + dashboard)
+Documentation=https://github.com/northmendo/peerloom-seeder/blob/main/docs/DEBIAN-LXC.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/peerloom-seeder
+EnvironmentFile=/etc/peerloom-seeder.env
+ExecStart=/usr/bin/node host/server.js
+Restart=on-failure
+RestartSec=5
+
+# A fresh system user every start, with /var/lib/peerloom-seeder handed to it
+# (kept across starts, owned by root, mode 0750). The seeder needs no user
+# account, no capabilities and no writable path but its state directory.
+DynamicUser=yes
+StateDirectory=peerloom-seeder
+UMask=0077
+
+# Filesystem and kernel hardening that the seeder works under: node and the
+# Bare runtime only read the checkout in /opt (read-only is fine) and write
+# inside the state directory. MemoryDenyWriteExecute and SystemCallFilter
+# are deliberately NOT set: V8 and Bare need their usual JIT/thread calls.
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectClock=yes
+ProtectControlGroups=yes
+ProtectHostname=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target
