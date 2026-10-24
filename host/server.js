@@ -10,9 +10,19 @@
 // saved in the data folder.
 //
 //   SEEDER_DATA       data folder (default ~/.peerloom-seeder)
-//   SEEDER_HOST       address to listen on (default 127.0.0.1)
+//   SEEDER_HOST       address to listen on (default 127.0.0.1). Loopback
+//                     binds need no password; anything else (0.0.0.0 for an
+//                     LXC, a LAN address) requires one, and a generated
+//                     password is minted if none is set (readConfig below).
 //   SEEDER_PORT       port (default 8761)
 //   SEEDER_PASSWORD   dashboard password
+//   SEEDER_CONFIG     a JSON file with any of the keys data, host, port,
+//                     password, bootstrap (same meanings as the env vars
+//                     of the same names). An env var beats the file; the
+//                     file beats the built-in defaults. For a headless
+//                     install (Debian LXC, see docs/DEBIAN-LXC.md) the
+//                     service's env file sets SEEDER_HOST=0.0.0.0 and the
+//                     dashboard stays password-gated.
 //   SEEDER_BARE       the bare binary (default: next to host/ in a package,
 //                     else dist/<platform>-<arch>/bare)
 //   SEEDER_BUNDLE     the seeder bundle (default: seeder/ in a package, else
@@ -56,6 +66,62 @@ function readVersion () {
     try { return JSON.parse(fs.readFileSync(f, 'utf8')).version || null } catch {}
   }
   return null
+}
+
+// host:port[,host:port] (or null) -> [{ host, port }], for the env var and the
+// config file alike.
+function parseBootstrap (value) {
+  if (!value) return null
+  const list = String(value).split(',').map((hp) => {
+    const [host, port] = hp.split(':')
+    return { host, port: Number(port) }
+  })
+  if (list.some((b) => !b.host || !Number.isInteger(b.port) || b.port < 0 || b.port > 65535)) {
+    throw new Error('bootstrap must be host:port[,host:port]')
+  }
+  return list
+}
+
+// The dashboard's bind and data settings, from env vars and an optional JSON
+// config file (SEEDER_CONFIG). An env var beats the file, the file beats the
+// built-in defaults, so a systemd EnvironmentFile can carry the LXC bind
+// while a config file holds the rest:
+//
+//   { "host": "0.0.0.0", "port": 8761, "data": "/var/lib/peerloom-seeder",
+//     "password": "...", "bootstrap": "127.0.0.1:10001" }
+//
+// The file is read only when SEEDER_CONFIG is set, and a bad one is an error
+// rather than a silent fall-back to defaults: an operator who pointed the
+// service at a config wants that config.
+function readConfig (env = process.env) {
+  let file = {}
+  if (env.SEEDER_CONFIG) {
+    const raw = JSON.parse(fs.readFileSync(env.SEEDER_CONFIG, 'utf8')) // a bad file throws
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('SEEDER_CONFIG must point at a JSON object')
+    file = raw
+  }
+
+  const pick = (envVar, key) => (env[envVar] !== undefined && env[envVar] !== '' ? env[envVar] : file[key])
+  const str = (envVar, key, fallback) => {
+    const v = pick(envVar, key)
+    if (v === undefined || v === null) return fallback
+    if (typeof v !== 'string' || !v.trim()) throw new Error(envVar + ' / ' + key + ' must be a non-empty string')
+    return v
+  }
+  const port = pick('SEEDER_PORT', 'port')
+  if (port !== undefined && port !== null && port !== '' && !(Number.isInteger(Number(port)) && Number(port) >= 0 && Number(port) <= 65535)) {
+    throw new Error('SEEDER_PORT / port must be a whole number from 0 to 65535 (0 picks a free port)')
+  }
+  const password = pick('SEEDER_PASSWORD', 'password')
+  if (password !== undefined && password !== null && typeof password !== 'string') throw new Error('SEEDER_PASSWORD / password must be a string')
+
+  return {
+    dataDir: str('SEEDER_DATA', 'data', path.join(os.homedir(), '.peerloom-seeder')),
+    host: str('SEEDER_HOST', 'host', '127.0.0.1'),
+    port: port === undefined || port === null || port === '' ? 8761 : Number(port),
+    password: password || null,
+    bootstrap: parseBootstrap(pick('SEEDER_BOOTSTRAP', 'bootstrap'))
+  }
 }
 
 // Bytes in a folder, without following links.
@@ -172,6 +238,7 @@ async function createHost ({
 
 async function main () {
   const env = process.env
+  const cfg = readConfig(env)
   const exe = process.platform === 'win32' ? 'bare.exe' : 'bare'
   // A package (scripts/stage.js) has bare and seeder/ next to host/; a
   // checkout has them in dist/<platform>-<arch>/.
@@ -180,14 +247,14 @@ async function main () {
   const bundlePath = env.SEEDER_BUNDLE || (packaged ? path.join(__dirname, '..', 'seeder', 'seeder.bundle') : path.join(path.dirname(barePath), 'seeder.bundle'))
   const log = (line) => console.log('[peerloom-seeder] ' + line)
   const h = await createHost({
-    dataDir: env.SEEDER_DATA || path.join(os.homedir(), '.peerloom-seeder'),
-    host: env.SEEDER_HOST || '127.0.0.1',
-    port: Number(env.SEEDER_PORT || 8761),
-    password: env.SEEDER_PASSWORD || null,
+    dataDir: cfg.dataDir,
+    host: cfg.host,
+    port: cfg.port,
+    password: cfg.password,
     barePath,
     bundlePath,
     updates: { packaged },
-    bootstrap: env.SEEDER_BOOTSTRAP ? env.SEEDER_BOOTSTRAP.split(',').map((hp) => { const [host, port] = hp.split(':'); return { host, port: Number(port) } }) : null,
+    bootstrap: cfg.bootstrap,
     log
   })
   // A service manager or Docker restarts the host if the seeder dies.
@@ -206,4 +273,4 @@ if (require.main === module) {
   })
 }
 
-module.exports = { createHost, folderBytes }
+module.exports = { createHost, folderBytes, readConfig, parseBootstrap }

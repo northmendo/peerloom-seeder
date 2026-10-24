@@ -123,6 +123,47 @@ test('dashboard host', async (t) => {
     assert.ok(!fs.readdirSync(dir).some((f) => /password/i.test(f)))
   })
 
+  // The LXC case (docs/DEBIAN-LXC.md): the dashboard bound to every interface.
+  // No request gets in without a session, whoever it comes from — a non-
+  // loopback bind must never be unauthenticated (requireSafeBind fails closed).
+  await t.test('a 0.0.0.0 bind mints and enforces a password', async () => {
+    const dir = dirs.make()
+    let printed = ''
+    const lan = await createHost({
+      dataDir: dir,
+      host: '0.0.0.0',
+      port: 0,
+      barePath: bare,
+      bundlePath: bundle,
+      bootstrap: testnet.bootstrap,
+      log: (line) => { printed += line + '\n' }
+    })
+    open.push(() => lan.close())
+    const url = 'http://127.0.0.1:' + lan.server.address().port
+
+    // The API answers 401 without a session; the page loads and shows the
+    // login form. Nothing is served unauthenticated but the page itself.
+    assert.equal((await fetch(url + '/api/status')).status, 401)
+    assert.equal((await fetch(url + '/api/devices')).status, 401)
+    assert.equal((await fetch(url + '/')).status, 200)
+
+    // A password was minted, persisted in the data folder and printed once.
+    const minted = fs.readFileSync(path.join(dir, 'dashboard-password'), 'utf8').trim()
+    assert.ok(minted.length >= 16)
+    assert.ok(printed.includes(minted))
+    assert.ok(!printed.slice(printed.indexOf(minted) + 1).includes(minted), 'printed exactly once')
+
+    // The wrong password is refused; the minted one opens a session that works.
+    const wrong = await fetch(url + '/api/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ password: 'nope' }) })
+    assert.equal(wrong.status, 401)
+    const login = await fetch(url + '/api/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ password: minted }) })
+    assert.equal(login.status, 200)
+    const cookie = (login.headers.get('set-cookie') || '').split(';')[0]
+    assert.ok(cookie)
+    assert.equal((await fetch(url + '/api/status', { headers: { cookie } })).status, 200)
+    assert.equal((await fetch(url + '/api/status')).status, 401, 'still 401 without the session')
+  })
+
   await t.test('folderBytes counts nested files', async () => {
     const dir = dirs.make()
     fs.mkdirSync(path.join(dir, 'a', 'b'), { recursive: true })
