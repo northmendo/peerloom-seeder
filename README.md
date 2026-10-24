@@ -120,7 +120,11 @@ Two processes:
   forget, the storage limit, the seeder key, version, peers and disk use. Login is `@peerloom/host`'s dashboard-auth,
   copied into `host/vendor/` by `node scripts/vendor-peerloom-host.js`: none
   on 127.0.0.1, `SEEDER_PASSWORD` or a generated password elsewhere.
-  Settings are environment variables, listed at the top of the file.
+  Settings are environment variables, listed at the top of the file; the same
+  ones can live in a JSON file pointed at by `SEEDER_CONFIG` (an env var
+  beats the file). For a headless Debian LXC — systemd unit, env file and a
+  Proxmox VE community script — see `docs/DEBIAN-LXC.md` and `packaging/debian/`,
+  `packaging/proxmox/`.
 
 A new data folder starts with a storage limit of 25 GB per device. A folder
 a PearOffice seeder set up (`pearoffice-state/`) opens as is: same seeder

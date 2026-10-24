@@ -1,0 +1,53 @@
+{
+  "name": "PeerLoom Seeder",
+  "slug": "peerloom-seeder",
+  "categories": [
+    18
+  ],
+  "date_created": "2026-10-24",
+  "type": "ct",
+  "updateable": true,
+  "privileged": false,
+  "interface_port": 8761,
+  "documentation": "https://github.com/northmendo/peerloom-seeder/blob/main/docs/DEBIAN-LXC.md",
+  "website": "https://peerloomllc.com",
+  "repository": "https://github.com/northmendo/peerloom-seeder",
+  "architectures": [
+    "amd64",
+    "arm64"
+  ],
+  "logo": "https://raw.githubusercontent.com/northmendo/peerloom-seeder/main/host/icon.png",
+  "description": "A blind seeder for PeerLoom apps: it keeps a copy of the encrypted spaces your phones share, so a device that wakes up catches up even when nobody else is online. It stores scrambled data it cannot read and can never decrypt, serves it over Holepunch's DHT, and pairs devices with a QR link. The dashboard manages devices, per-device storage limits and pairing.",
+  "install_methods": [
+    {
+      "type": "default",
+      "script": "ct/peerloom-seeder.sh",
+      "config_path": "/etc/peerloom-seeder.env",
+      "resources": {
+        "cpu": 1,
+        "ram": 1024,
+        "hdd": 8,
+        "os": "Debian",
+        "version": "12"
+      }
+    }
+  ],
+  "default_credentials": {
+    "username": null,
+    "password": null
+  },
+  "notes": [
+    {
+      "text": "The dashboard is password-protected. With the default 0.0.0.0 bind a password is generated on first start, saved (0600) at /var/lib/peerloom-seeder/dashboard-password inside the container and printed at the end of the install. The API refuses every request without a session (401).",
+      "type": "warning"
+    },
+    {
+      "text": "The installer sets a per-device storage limit through the dashboard's own API; you can change it later on the dashboard.",
+      "type": "info"
+    },
+    {
+      "text": "The service runs under a systemd DynamicUser with ProtectSystem=strict; only /var/lib/peerloom-seeder is writable for it.",
+      "type": "info"
+    }
+  ]
+}
